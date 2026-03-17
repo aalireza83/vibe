@@ -22,6 +22,10 @@ from telethon.tl.types import (
 
 from archive.models import AppSettings, ChatType, Message, MessageEdit, MessageType, TelegramChat, TelegramUser
 
+# Кеш количества участников: {chat_id: member_count}
+# Живёт пока запущен listener, избавляет от повторных запросов к Telegram
+_member_count_cache: dict[int, int] = {}
+
 logger = logging.getLogger(__name__)
 
 
@@ -131,16 +135,12 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
     if chat_type == ChatType.GROUP:
         app_settings = await sync_to_async(AppSettings.get)()
 
-        # Если count неизвестен — проверяем кеш в БД, иначе запрашиваем у Telegram
+        # 1. Проверяем in-memory кеш
         if member_count is None:
-            member_count = await sync_to_async(
-                lambda: TelegramChat.objects.filter(chat_id=chat_id)
-                .values_list("member_count", flat=True)
-                .first()
-            )()
+            member_count = _member_count_cache.get(chat_id)
 
+        # 2. Если нет в кеше — запрашиваем у Telegram и кешируем
         if member_count is None:
-            # Первый раз видим этот чат — запрашиваем полную инфо у Telegram
             try:
                 if isinstance(chat, Channel):
                     full = await client(GetFullChannelRequest(chat))
@@ -148,9 +148,13 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
                 else:
                     full = await client(GetFullChatRequest(chat_id))
                     member_count = full.full_chat.participants_count
-                logger.info("Получили кол-во участников для '%s': %d", title, member_count)
+                if member_count is not None:
+                    _member_count_cache[chat_id] = member_count
+                    logger.info("Запросили у Telegram '%s': %d участников (закешировано)", title, member_count)
             except Exception as exc:
                 logger.warning("Не удалось получить участников для '%s': %s", title, exc)
+        else:
+            logger.debug("Кеш для '%s': %d участников", title, member_count)
 
         if member_count is not None and member_count > app_settings.max_group_members:
             logger.info(
