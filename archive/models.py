@@ -195,7 +195,7 @@ class Message(models.Model):
             models.Index(fields=["chat", "message_id"], name="idx_message_chat_msgid"),
             models.Index(
                 fields=["transcription_pending"],
-                name="idx_message_transcription_pending",
+                name="idx_msg_transcribe_pending",
                 condition=models.Q(transcription_pending=True),
             ),
             GinIndex(fields=["search_vector"], name="idx_message_search_vector"),
