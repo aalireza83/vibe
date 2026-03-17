@@ -90,4 +90,4 @@ LOGOUT_REDIRECT_URL = "/login/"
 TG_API_ID = config("TG_API_ID", cast=int)
 TG_API_HASH = config("TG_API_HASH")
 TG_PHONE = config("TG_PHONE")
-TG_SESSION = config("TG_SESSION", default="tg_session")
+TG_SESSION = TG_PHONE.lstrip("+")
