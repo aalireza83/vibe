@@ -32,7 +32,38 @@
             --badge-bg:     #232e3c;
             --badge-color:  #aabbc8;
             --edit-history: #1c2c3a;
+
+            /* Переопределяем Bootstrap CSS переменные */
+            --bs-body-color:        #f5f5f5;
+            --bs-body-bg:           #0e1621;
+            --bs-secondary-color:   #708fa0;
+            --bs-border-color:      rgba(255,255,255,.06);
+            --bs-card-bg:           #182533;
+            --bs-card-border-color: rgba(255,255,255,.06);
+            --bs-list-group-bg:     #182533;
+            --bs-list-group-border-color: rgba(255,255,255,.06);
+            --bs-list-group-color:  #f5f5f5;
+            --bs-list-group-action-hover-bg: #1e2f40;
+            --bs-pagination-bg:     #182533;
+            --bs-pagination-border-color: rgba(255,255,255,.06);
+            --bs-pagination-color:  #f5f5f5;
+            --bs-pagination-disabled-bg: #182533;
+            --bs-pagination-disabled-color: #708fa0;
+            --bs-form-select-bg:    #182533;
+            --bs-input-bg:          #182533;
+            --bs-breadcrumb-divider-color: #708fa0;
+            --bs-link-color:        #5fa3d0;
+            --bs-link-hover-color:  #7dbde8;
         }
+
+        [data-theme="dark"] .text-dark { color: #f5f5f5 !important; }
+        [data-theme="dark"] .text-muted { color: #708fa0 !important; }
+        [data-theme="dark"] .breadcrumb-item a { color: #5fa3d0; }
+        [data-theme="dark"] .breadcrumb-item.active { color: #708fa0; }
+        [data-theme="dark"] .breadcrumb-item + .breadcrumb-item::before { color: #708fa0; }
+        [data-theme="dark"] details summary { color: #708fa0; }
+        [data-theme="dark"] .btn-primary { background: #2b5278; border-color: #2b5278; }
+        [data-theme="dark"] .btn-primary:hover { background: #3a6b9e; border-color: #3a6b9e; }
 
         body            { background: var(--bg); color: var(--text); }
         .navbar         { background: var(--navbar) !important; }

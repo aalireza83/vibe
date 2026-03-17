@@ -567,6 +567,10 @@ async def handle_message_edited(event):
         except Message.DoesNotExist:
             return
 
+        # Реакции тоже вызывают MessageEdited — игнорируем если текст не изменился
+        if (msg.text or "") == new_text:
+            return
+
         # Сохраняем предыдущую версию в историю
         if msg.text:
             MessageEdit.objects.create(
