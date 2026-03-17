@@ -273,7 +273,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS("Запускаем Telegram listener..."))
-        asyncio.run(self._run())
+        try:
+            asyncio.run(self._run())
+        except KeyboardInterrupt:
+            pass
 
     async def _run(self):
         client = TelegramClient(
