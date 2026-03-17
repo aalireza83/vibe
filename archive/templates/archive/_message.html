@@ -33,8 +33,14 @@
 
         {% elif msg.message_type == "sticker" %}
             {% if msg.media_url %}
-                <img src="{{ msg.media_url }}" class="msg-sticker" alt="{{ msg.sticker_emoji|default:'стикер' }}"
-                     onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎭 {{ msg.sticker_emoji|default:"Стикер" }}'}))">
+                {% if ".webm" in msg.media_url %}
+                    <video class="msg-sticker" autoplay loop muted playsinline>
+                        <source src="{{ msg.media_url }}" type="video/webm">
+                    </video>
+                {% else %}
+                    <img src="{{ msg.media_url }}" class="msg-sticker" alt="{{ msg.sticker_emoji|default:'стикер' }}"
+                         onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎭 {{ msg.sticker_emoji|default:&quot;Стикер&quot; }}'}))">
+                {% endif %}
             {% else %}
                 <span class="badge bg-light text-dark">🎭 {{ msg.sticker_emoji|default:"Стикер" }}</span>
             {% endif %}
