@@ -216,7 +216,7 @@ def extract_message_fields(message) -> dict:
         if "DocumentAttributeSticker" in attrs:
             sticker = attrs["DocumentAttributeSticker"]
             fields["sticker_emoji"] = sticker.alt
-            fields["sticker_set"] = sticker.stickerset.short_name if sticker.stickerset else None
+            fields["sticker_set"] = getattr(sticker.stickerset, "short_name", None)
 
     # Текстовая подпись к медиа
     if message.text:
