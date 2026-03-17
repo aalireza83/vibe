@@ -41,6 +41,10 @@ def get_message_type(message) -> str:
         doc = media.document
         attrs = {type(a).__name__: a for a in doc.attributes}
 
+        # Стикер проверяем первым — анимированные стикеры (WEBM) имеют
+        # одновременно DocumentAttributeSticker и DocumentAttributeVideo
+        if "DocumentAttributeSticker" in attrs:
+            return MessageType.STICKER
         if "DocumentAttributeAnimated" in attrs:
             return MessageType.GIF
         if "DocumentAttributeVideo" in attrs:
@@ -51,8 +55,6 @@ def get_message_type(message) -> str:
             if attrs["DocumentAttributeAudio"].voice:
                 return MessageType.VOICE
             return MessageType.AUDIO
-        if "DocumentAttributeSticker" in attrs:
-            return MessageType.STICKER
 
         return MessageType.DOCUMENT
 
@@ -450,12 +452,13 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
     save_dir = Path(django_settings.MEDIA_ROOT) / str(tg_chat.chat_id) / type_dir
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    # Для видео берём минимальный thumb, для фото — второй по размеру (не оригинал)
+    # Для видео берём превью, для фото — небольшой размер, остальное — полный файл
     thumb = None
     if msg_type == MessageType.VIDEO:
-        thumb = 0  # наименьший доступный thumb (превью)
+        thumb = 0  # наименьший доступный thumb
     elif msg_type == MessageType.PHOTO:
         thumb = 1  # небольшой размер
+    # Стикеры, GIF, голосовые, кружки — скачиваем полный файл (thumb=None)
 
     async with _download_semaphore:
         try:
