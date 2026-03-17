@@ -6,11 +6,85 @@
     <title>{% block title %}Vibe Archive{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #f5f5f5; }
-        .navbar { background: #2b5278 !important; }
+        /* Светлая тема (по умолчанию) */
+        :root {
+            --bg:           #f5f5f5;
+            --surface:      #ffffff;
+            --navbar:       #2b5278;
+            --text:         #212529;
+            --text-muted:   #6c757d;
+            --border:       rgba(0,0,0,.08);
+            --shadow:       rgba(0,0,0,.08);
+            --badge-bg:     #f8f9fa;
+            --badge-color:  #212529;
+            --edit-history: #f8f9fa;
+        }
+
+        /* Тёмная тема — официальные цвета Telegram */
+        [data-theme="dark"] {
+            --bg:           #0e1621;
+            --surface:      #182533;
+            --navbar:       #17212b;
+            --text:         #f5f5f5;
+            --text-muted:   #708fa0;
+            --border:       rgba(255,255,255,.06);
+            --shadow:       rgba(0,0,0,.3);
+            --badge-bg:     #232e3c;
+            --badge-color:  #aabbc8;
+            --edit-history: #1c2c3a;
+        }
+
+        body            { background: var(--bg); color: var(--text); }
+        .navbar         { background: var(--navbar) !important; }
         .navbar-brand, .nav-link { color: #fff !important; }
+
+        /* Сообщения */
+        .msg-bubble     { background: var(--surface); box-shadow: 0 1px 2px var(--shadow); }
+        .msg-meta       { color: var(--text-muted); }
+
+        /* Карточки Bootstrap */
+        .card           { background: var(--surface); border-color: var(--border); color: var(--text); }
+        .list-group-item {
+            background: var(--surface);
+            border-color: var(--border);
+            color: var(--text);
+        }
+        .list-group-item:hover { filter: brightness(1.06); }
+
+        /* Badges */
+        .badge.bg-light { background: var(--badge-bg) !important; color: var(--badge-color) !important; }
+
+        /* История правок */
+        .edit-history   { background: var(--edit-history); }
+
+        /* Форма поиска */
+        .form-control, .form-select {
+            background: var(--surface);
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .form-control:focus, .form-select:focus {
+            background: var(--surface);
+            color: var(--text);
+        }
+
+        /* Пагинация */
+        .page-link      { background: var(--surface); border-color: var(--border); color: var(--text); }
+        .page-item.disabled .page-link { background: var(--surface); color: var(--text-muted); }
+
+        /* Кнопка переключения темы */
+        #theme-toggle   { cursor: pointer; font-size: 1.1em; background: none; border: none; color: #fff; padding: 0; }
+        #theme-toggle:hover { opacity: .8; }
     </style>
     {% block extra_css %}{% endblock %}
+
+    <script>
+        // Применяем тему до рендера — без мигания
+        (function() {
+            const t = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg mb-4">
@@ -19,6 +93,7 @@
             <div class="d-flex align-items-center gap-3">
                 <a href="/search/" class="nav-link">Поиск</a>
                 <a href="/admin/" target="_blank" class="nav-link">Админка</a>
+                <button id="theme-toggle" title="Переключить тему">🌙</button>
                 <a href="/logout/" class="nav-link">Выйти</a>
             </div>
         </div>
@@ -27,6 +102,23 @@
         {% block content %}{% endblock %}
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const btn = document.getElementById('theme-toggle');
+        const html = document.documentElement;
+
+        function applyTheme(t) {
+            html.setAttribute('data-theme', t);
+            btn.textContent = t === 'dark' ? '☀️' : '🌙';
+        }
+
+        applyTheme(localStorage.getItem('theme') || 'light');
+
+        btn.addEventListener('click', () => {
+            const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', next);
+            applyTheme(next);
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
