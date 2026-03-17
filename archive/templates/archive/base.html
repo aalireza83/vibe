@@ -112,9 +112,9 @@
         #theme-toggle   { cursor: pointer; font-size: 1.1em; background: none; border: none; color: #fff; padding: 0; }
         #theme-toggle:hover { opacity: .8; }
 
-        /* Кнопка копирования */
-        .copy-btn { background: none; border: none; padding: 0 2px; cursor: pointer; font-size: 1em; opacity: 0.4; transition: opacity .15s, color .15s; }
-        .copy-btn:hover { opacity: 1; }
+        /* Кнопки сообщений */
+        .copy-btn, .bookmark-btn { background: none; border: none; padding: 0 2px; cursor: pointer; font-size: 1em; opacity: 0.4; color: var(--text); transition: opacity .15s, color .15s; }
+        .copy-btn:hover, .bookmark-btn:hover, .bookmark-btn.active { opacity: 1; }
         .copy-btn.copied { opacity: 1; color: #28a745; }
     </style>
     {% block extra_css %}{% endblock %}
