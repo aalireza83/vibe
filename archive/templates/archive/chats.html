@@ -1,0 +1,53 @@
+{% extends "archive/base.html" %}
+{% block title %}Чаты — Vibe Archive{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Чаты ({{ chat_list.count }})</h5>
+</div>
+
+{% if not chat_list %}
+    <div class="text-muted text-center py-5">Сообщений пока нет. Запустите <code>run_listener</code>.</div>
+{% else %}
+<div class="list-group shadow-sm">
+    {% for chat in chat_list %}
+    <a href="{% url 'chat_detail' chat.pk %}" class="list-group-item list-group-item-action py-3">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1 me-2 overflow-hidden">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="fw-semibold">{{ chat.display_name }}</span>
+                    {% if chat.chat_type == "group" %}
+                        <span class="badge bg-secondary" style="font-size:0.7em">группа</span>
+                    {% elif chat.chat_type == "bot" %}
+                        <span class="badge bg-info text-dark" style="font-size:0.7em">бот</span>
+                    {% endif %}
+                </div>
+                <div class="text-muted small text-truncate">
+                    {% if chat.last_type == "text" %}
+                        {{ chat.last_text|default:"—"|truncatechars:80 }}
+                    {% elif chat.last_type == "photo" %}📷 Фото
+                    {% elif chat.last_type == "video" %}🎥 Видео
+                    {% elif chat.last_type == "voice" %}🎤 Голосовое
+                    {% elif chat.last_type == "video_note" %}⭕ Кружок
+                    {% elif chat.last_type == "sticker" %}🎭 Стикер
+                    {% elif chat.last_type == "audio" %}🎵 Аудио
+                    {% elif chat.last_type == "gif" %}🎞 GIF
+                    {% elif chat.last_type == "document" %}📄 Документ
+                    {% elif chat.last_type == "poll" %}📊 Опрос
+                    {% elif chat.last_type == "location" %}📍 Геолокация
+                    {% elif chat.last_type == "contact" %}👤 Контакт
+                    {% else %}—{% endif %}
+                </div>
+            </div>
+            <div class="text-end flex-shrink-0">
+                <div class="text-muted small">
+                    {% if chat.last_date %}{{ chat.last_date|date:"d.m H:i" }}{% endif %}
+                </div>
+                <span class="badge bg-primary rounded-pill">{{ chat.message_count }}</span>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

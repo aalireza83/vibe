@@ -1,0 +1,156 @@
+{% extends "archive/base.html" %}
+{% block title %}{{ tg_chat.display_name }} — Vibe Archive{% endblock %}
+
+{% block extra_css %}
+<style>
+    .msg-bubble { background: #fff; border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+    .msg-bubble.deleted { opacity: 0.5; border-left: 3px solid #dc3545; }
+    .msg-meta { font-size: 0.78em; color: #888; }
+    .msg-type-badge { font-size: 0.72em; }
+    .edit-history { font-size: 0.8em; background: #f8f9fa; border-radius: 6px; padding: 6px 10px; margin-top: 6px; }
+    .msg-media img { max-width: 240px; border-radius: 8px; margin-top: 6px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'chats' %}">Чаты</a></li>
+        <li class="breadcrumb-item active">{{ tg_chat.display_name }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">{{ tg_chat.display_name }}</h5>
+    <span class="text-muted small">{{ page_obj.paginator.count }} сообщений</span>
+</div>
+
+{% for msg in page_obj %}
+<div class="msg-bubble {% if msg.is_deleted %}deleted{% endif %}">
+    <div class="d-flex justify-content-between align-items-start">
+        <div class="msg-meta">
+            <strong>{{ msg.sender.display_name|default:"Неизвестно" }}</strong>
+            {% if msg.is_forwarded %}
+                <span class="text-secondary"> › переслано{% if msg.forward_from_name %} от {{ msg.forward_from_name }}{% endif %}</span>
+            {% endif %}
+        </div>
+        <div class="msg-meta d-flex align-items-center gap-2">
+            {% if msg.is_deleted %}
+                <span class="text-danger">🗑 удалено {{ msg.deleted_at|date:"d.m H:i" }}</span>
+            {% endif %}
+            {% if msg.edited_at %}
+                <span class="text-warning" title="Отредактировано {{ msg.edited_at }}">✏️</span>
+            {% endif %}
+            <span>{{ msg.date|date:"d.m.Y H:i" }}</span>
+        </div>
+    </div>
+
+    <div class="mt-1">
+        {% if msg.message_type == "text" %}
+            <p class="mb-0" style="white-space:pre-wrap">{{ msg.text }}</p>
+
+        {% elif msg.message_type == "photo" %}
+            <span class="badge bg-light text-dark msg-type-badge">📷 Фото</span>
+            {% if msg.media_path %}
+                <div class="msg-media">
+                    <img src="/media/{{ msg.media_path|slice:"media_root_len:" }}" onerror="this.style.display='none'">
+                </div>
+            {% endif %}
+            {% if msg.text %}<p class="mb-0 mt-1" style="white-space:pre-wrap">{{ msg.text }}</p>{% endif %}
+
+        {% elif msg.message_type == "video" %}
+            <span class="badge bg-light text-dark msg-type-badge">🎥 Видео{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+
+        {% elif msg.message_type == "voice" %}
+            <span class="badge bg-light text-dark msg-type-badge">🎤 Голосовое{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% if msg.transcription_pending %}
+                <p class="mb-0 mt-1 text-muted fst-italic small">Транскрипция обрабатывается...</p>
+            {% elif msg.transcription %}
+                <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
+            {% endif %}
+
+        {% elif msg.message_type == "video_note" %}
+            <span class="badge bg-light text-dark msg-type-badge">⭕ Кружок{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% if msg.transcription_pending %}
+                <p class="mb-0 mt-1 text-muted fst-italic small">Транскрипция обрабатывается...</p>
+            {% elif msg.transcription %}
+                <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
+            {% endif %}
+
+        {% elif msg.message_type == "sticker" %}
+            <span class="badge bg-light text-dark msg-type-badge">🎭 Стикер {% if msg.sticker_emoji %}{{ msg.sticker_emoji }}{% endif %}</span>
+
+        {% elif msg.message_type == "gif" %}
+            <span class="badge bg-light text-dark msg-type-badge">🎞 GIF</span>
+            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+
+        {% elif msg.message_type == "audio" %}
+            <span class="badge bg-light text-dark msg-type-badge">🎵
+                {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} — {{ msg.audio_artist }}{% endif %}
+                {% else %}Аудио{% endif %}
+                {% if msg.duration %} {{ msg.duration }}с{% endif %}
+            </span>
+
+        {% elif msg.message_type == "document" %}
+            <span class="badge bg-light text-dark msg-type-badge">📄 {{ msg.file_name|default:"Документ" }}</span>
+            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+
+        {% elif msg.message_type == "poll" %}
+            <span class="badge bg-light text-dark msg-type-badge">📊 Опрос</span>
+            <p class="mb-1 mt-1 fw-semibold">{{ msg.poll_question }}</p>
+            {% if msg.poll_options %}
+                <ul class="mb-0 small">
+                    {% for opt in msg.poll_options %}<li>{{ opt }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+
+        {% elif msg.message_type == "location" %}
+            <span class="badge bg-light text-dark msg-type-badge">📍 Геолокация</span>
+            <p class="mb-0 mt-1 small">{{ msg.latitude }}, {{ msg.longitude }}</p>
+
+        {% elif msg.message_type == "contact" %}
+            <span class="badge bg-light text-dark msg-type-badge">👤 Контакт</span>
+            <p class="mb-0 mt-1 small">{{ msg.contact_name }} {% if msg.contact_phone %}· {{ msg.contact_phone }}{% endif %}</p>
+
+        {% else %}
+            <span class="badge bg-secondary msg-type-badge">{{ msg.message_type }}</span>
+        {% endif %}
+    </div>
+
+    {% if msg.edits.all %}
+    <div class="edit-history mt-2">
+        <details>
+            <summary class="text-muted" style="cursor:pointer">История правок ({{ msg.edits.count }})</summary>
+            {% for edit in msg.edits.all %}
+            <div class="mt-1 pt-1 border-top">
+                <span class="text-muted" style="font-size:0.85em">{{ edit.edited_at|date:"d.m.Y H:i" }}</span>
+                <p class="mb-0" style="white-space:pre-wrap">{{ edit.text }}</p>
+            </div>
+            {% endfor %}
+        </details>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">← Новее</a>
+            </li>
+        {% endif %}
+        <li class="page-item disabled">
+            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Старше →</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
