@@ -3,7 +3,7 @@
         <div class="msg-meta">
             <strong>{{ msg.sender.display_name|default:"Неизвестно" }}</strong>
             {% if msg.is_forwarded %}
-                <span class="text-secondary"> › переслано{% if msg.forward_from_name %} от {{ msg.forward_from_name }}{% endif %}</span>
+                <span class="text-secondary"> › переслано{% if msg.forward_from_name %} від {{ msg.forward_from_name }}{% endif %}</span>
             {% endif %}
         </div>
         <div class="msg-meta d-flex align-items-center gap-2">
@@ -18,24 +18,60 @@
     </div>
 
     <div class="mt-1">
+
         {% if msg.message_type == "text" %}
             <p class="mb-0" style="white-space:pre-wrap">{{ msg.text }}</p>
 
         {% elif msg.message_type == "photo" %}
-            <span class="badge bg-light text-dark msg-type-badge">📷 Фото</span>
-            {% if msg.media_path %}
-                <div class="msg-media">
-                    <img src="/media/{{ msg.media_path|slice:"media_root_len:" }}" onerror="this.style.display='none'">
-                </div>
+            {% if msg.media_url %}
+                <img src="{{ msg.media_url }}" class="msg-media-img" alt="Фото"
+                     onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'📷 Фото (файл недоступен)'}))">
+            {% else %}
+                <span class="badge bg-light text-dark">📷 Фото — ещё скачивается...</span>
             {% endif %}
             {% if msg.text %}<p class="mb-0 mt-1" style="white-space:pre-wrap">{{ msg.text }}</p>{% endif %}
 
+        {% elif msg.message_type == "sticker" %}
+            {% if msg.media_url %}
+                <img src="{{ msg.media_url }}" class="msg-sticker" alt="{{ msg.sticker_emoji|default:'стикер' }}"
+                     onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎭 {{ msg.sticker_emoji|default:"Стикер" }}'}))">
+            {% else %}
+                <span class="badge bg-light text-dark">🎭 {{ msg.sticker_emoji|default:"Стикер" }}</span>
+            {% endif %}
+
+        {% elif msg.message_type == "gif" %}
+            {% if msg.media_url %}
+                <video class="msg-media-img" autoplay loop muted playsinline
+                       onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎞 GIF (файл недоступен)'}))">
+                    <source src="{{ msg.media_url }}">
+                </video>
+            {% else %}
+                <span class="badge bg-light text-dark">🎞 GIF — ещё скачивается...</span>
+            {% endif %}
+            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+
         {% elif msg.message_type == "video" %}
-            <span class="badge bg-light text-dark msg-type-badge">🎥 Видео{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% if msg.media_url %}
+                <video class="msg-media-img" controls preload="metadata">
+                    <source src="{{ msg.media_url }}">
+                    Видео недоступно
+                </video>
+            {% else %}
+                <span class="badge bg-light text-dark">🎥 Видео{% if msg.duration %} {{ msg.duration }}с{% endif %} — превью скачивается...</span>
+            {% endif %}
             {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
 
         {% elif msg.message_type == "voice" %}
-            <span class="badge bg-light text-dark msg-type-badge">🎤 Голосовое{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% if msg.media_url %}
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <span class="text-muted small">🎤{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+                    <audio controls preload="none" style="height:32px;flex:1">
+                        <source src="{{ msg.media_url }}">
+                    </audio>
+                </div>
+            {% else %}
+                <span class="badge bg-light text-dark">🎤 Голосовое{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% endif %}
             {% if msg.transcription_pending %}
                 <p class="mb-0 mt-1 text-muted fst-italic small">Транскрипция обрабатывается...</p>
             {% elif msg.transcription %}
@@ -43,33 +79,50 @@
             {% endif %}
 
         {% elif msg.message_type == "video_note" %}
-            <span class="badge bg-light text-dark msg-type-badge">⭕ Кружок{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% if msg.media_url %}
+                <video class="msg-video-note" controls preload="metadata" loop>
+                    <source src="{{ msg.media_url }}">
+                </video>
+            {% else %}
+                <span class="badge bg-light text-dark">⭕ Кружок{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            {% endif %}
             {% if msg.transcription_pending %}
                 <p class="mb-0 mt-1 text-muted fst-italic small">Транскрипция обрабатывается...</p>
             {% elif msg.transcription %}
                 <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
             {% endif %}
 
-        {% elif msg.message_type == "sticker" %}
-            <span class="badge bg-light text-dark msg-type-badge">🎭 Стикер {% if msg.sticker_emoji %}{{ msg.sticker_emoji }}{% endif %}</span>
-
-        {% elif msg.message_type == "gif" %}
-            <span class="badge bg-light text-dark msg-type-badge">🎞 GIF</span>
-            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
-
         {% elif msg.message_type == "audio" %}
-            <span class="badge bg-light text-dark msg-type-badge">🎵
-                {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} — {{ msg.audio_artist }}{% endif %}
-                {% else %}Аудио{% endif %}
-                {% if msg.duration %} {{ msg.duration }}с{% endif %}
-            </span>
+            {% if msg.media_url %}
+                <div class="mt-1">
+                    <p class="mb-1 small fw-semibold">
+                        🎵 {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} — {{ msg.audio_artist }}{% endif %}{% else %}Аудио{% endif %}
+                        {% if msg.duration %}<span class="text-muted fw-normal">{{ msg.duration }}с</span>{% endif %}
+                    </p>
+                    <audio controls preload="none" style="width:100%;max-width:360px">
+                        <source src="{{ msg.media_url }}">
+                    </audio>
+                </div>
+            {% else %}
+                <span class="badge bg-light text-dark">🎵
+                    {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} — {{ msg.audio_artist }}{% endif %}{% else %}Аудио{% endif %}
+                    {% if msg.duration %} {{ msg.duration }}с{% endif %}
+                </span>
+            {% endif %}
 
         {% elif msg.message_type == "document" %}
-            <span class="badge bg-light text-dark msg-type-badge">📄 {{ msg.file_name|default:"Документ" }}</span>
+            {% if msg.media_url %}
+                <a href="{{ msg.media_url }}" download class="badge bg-light text-dark text-decoration-none">
+                    📄 {{ msg.file_name|default:"Документ" }}
+                    {% if msg.file_size %}<span class="text-muted"> · {{ msg.file_size|filesizeformat }}</span>{% endif %}
+                </a>
+            {% else %}
+                <span class="badge bg-light text-dark">📄 {{ msg.file_name|default:"Документ" }}{% if msg.file_size %} · {{ msg.file_size|filesizeformat }}{% endif %}</span>
+            {% endif %}
             {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
 
         {% elif msg.message_type == "poll" %}
-            <span class="badge bg-light text-dark msg-type-badge">📊 Опрос</span>
+            <span class="badge bg-light text-dark">📊 Опрос</span>
             <p class="mb-1 mt-1 fw-semibold">{{ msg.poll_question }}</p>
             {% if msg.poll_options %}
                 <ul class="mb-0 small">
@@ -78,16 +131,17 @@
             {% endif %}
 
         {% elif msg.message_type == "location" %}
-            <span class="badge bg-light text-dark msg-type-badge">📍 Геолокация</span>
+            <span class="badge bg-light text-dark">📍 Геолокация</span>
             <p class="mb-0 mt-1 small">{{ msg.latitude }}, {{ msg.longitude }}</p>
 
         {% elif msg.message_type == "contact" %}
-            <span class="badge bg-light text-dark msg-type-badge">👤 Контакт</span>
+            <span class="badge bg-light text-dark">👤 Контакт</span>
             <p class="mb-0 mt-1 small">{{ msg.contact_name }} {% if msg.contact_phone %}· {{ msg.contact_phone }}{% endif %}</p>
 
         {% else %}
-            <span class="badge bg-secondary msg-type-badge">{{ msg.message_type }}</span>
+            <span class="badge bg-secondary">{{ msg.message_type }}</span>
         {% endif %}
+
     </div>
 
     {% if msg.edits.all %}

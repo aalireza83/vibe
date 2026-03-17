@@ -1,6 +1,7 @@
 from django.contrib.postgres.indexes import GinIndex
 from django.contrib.postgres.search import SearchVectorField
 from django.db import models
+from django.conf import settings
 
 
 class AppSettings(models.Model):
@@ -203,6 +204,18 @@ class Message(models.Model):
 
     def __str__(self):
         return f"[{self.chat}] {self.message_type} #{self.message_id}"
+
+    @property
+    def media_url(self):
+        if not self.media_path:
+            return None
+        media_root = str(settings.MEDIA_ROOT)
+        path = str(self.media_path)
+        if path.startswith(media_root):
+            relative = path[len(media_root):].lstrip("/")
+        else:
+            relative = path.lstrip("/")
+        return f"{settings.MEDIA_URL}{relative}"
 
 
 class MessageEdit(models.Model):
