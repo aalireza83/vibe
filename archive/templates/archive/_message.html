@@ -15,6 +15,7 @@
                 <span class="text-warning" title="Отредактировано {{ msg.edited_at|date:"d.m.Y H:i" }}">✏️</span>
             {% endif %}
             <span>{{ msg.date|date:"d.m.Y H:i" }}</span>
+            <button class="copy-btn" data-text="{{ msg.text|default:'' }}" title="Скопировать">⎘</button>
             <button class="bookmark-btn {% if msg.bookmark %}active{% endif %}"
                     data-pk="{{ msg.pk }}"
                     title="{% if msg.bookmark %}Убрать закладку{% else %}Добавить закладку{% endif %}">🔖</button>
