@@ -152,11 +152,9 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
                     member_count = full.full_chat.participants_count
                 if member_count is not None:
                     _member_count_cache[chat_id] = member_count
-                    logger.info("Запросили у Telegram '%s': %d участников (закешировано)", title, member_count)
+                    logger.info("[TG] '%s' — %d участников", title, member_count)
             except Exception as exc:
                 logger.warning("Не удалось получить участников для '%s': %s", title, exc)
-        else:
-            logger.debug("Кеш для '%s': %d участников", title, member_count)
 
         if member_count is not None and member_count > app_settings.max_group_members:
             return None
