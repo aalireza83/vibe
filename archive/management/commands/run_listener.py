@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
+from telethon.tl.functions.messages import TranscribeAudioRequest
 from telethon.tl.types import (
     Channel,
     Chat,
@@ -14,10 +15,11 @@ from telethon.tl.types import (
     MessageMediaGeo,
     MessageMediaPhoto,
     MessageMediaPoll,
+    UpdateTranscribedAudio,
     User,
 )
 
-from archive.models import AppSettings, ChatType, Message, MessageType, TelegramChat, TelegramUser
+from archive.models import AppSettings, ChatType, Message, MessageEdit, MessageType, TelegramChat, TelegramUser
 
 logger = logging.getLogger(__name__)
 
@@ -266,6 +268,27 @@ class Command(BaseCommand):
             except Exception as exc:
                 logger.exception("Ошибка при обработке сообщения: %s", exc)
 
+        @client.on(events.MessageEdited)
+        async def on_message_edited(event):
+            try:
+                await handle_message_edited(event)
+            except Exception as exc:
+                logger.exception("Ошибка при обработке редактирования: %s", exc)
+
+        @client.on(events.MessageDeleted)
+        async def on_message_deleted(event):
+            try:
+                await handle_message_deleted(event)
+            except Exception as exc:
+                logger.exception("Ошибка при обработке удаления: %s", exc)
+
+        @client.on(events.Raw(UpdateTranscribedAudio))
+        async def on_transcription_ready(update):
+            try:
+                await handle_transcription_update(update)
+            except Exception as exc:
+                logger.exception("Ошибка при обработке транскрипции: %s", exc)
+
         self.stdout.write("Слушаем сообщения... (Ctrl+C для остановки)")
         await client.run_until_disconnected()
 
@@ -329,6 +352,12 @@ async def handle_new_message(event, client):
     ):
         asyncio.create_task(
             download_media_task(client, message, tg_chat, fields["message_type"])
+        )
+
+    # Транскрипция для голосовых и кружков
+    if fields["message_type"] in (MessageType.VOICE, MessageType.VIDEO_NOTE):
+        asyncio.create_task(
+            transcribe_message(client, message, tg_chat)
         )
 
     logger.debug(
@@ -417,3 +446,131 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
             await download_media_task(client, message, tg_chat, msg_type)
         except Exception as exc:
             logger.exception("Ошибка загрузки медиа: %s", exc)
+
+
+async def transcribe_message(client, message, tg_chat: TelegramChat):
+    from asgiref.sync import sync_to_async
+
+    try:
+        result = await client(TranscribeAudioRequest(
+            peer=await client.get_input_entity(tg_chat.chat_id),
+            msg_id=message.id,
+        ))
+
+        if not result.pending:
+            # Текст уже готов
+            @sync_to_async
+            def save_transcription():
+                Message.objects.filter(
+                    chat=tg_chat,
+                    message_id=message.id,
+                ).update(
+                    transcription=result.text,
+                    transcription_pending=False,
+                )
+
+            await save_transcription()
+            logger.debug("Транскрипция готова для сообщения #%d", message.id)
+        else:
+            # Помечаем как pending, результат придёт через UpdateTranscribedAudio
+            @sync_to_async
+            def mark_pending():
+                Message.objects.filter(
+                    chat=tg_chat,
+                    message_id=message.id,
+                ).update(transcription_pending=True)
+
+            await mark_pending()
+            logger.debug("Транскрипция ожидается для сообщения #%d", message.id)
+
+    except Exception as exc:
+        logger.warning("Не удалось запустить транскрипцию для #%d: %s", message.id, exc)
+
+
+async def handle_transcription_update(update: UpdateTranscribedAudio):
+    from asgiref.sync import sync_to_async
+
+    if update.pending:
+        return  # ещё не готово
+
+    @sync_to_async
+    def save():
+        Message.objects.filter(
+            chat__chat_id=update.peer.channel_id
+            if hasattr(update.peer, "channel_id")
+            else update.peer.chat_id
+            if hasattr(update.peer, "chat_id")
+            else update.peer.user_id,
+            message_id=update.msg_id,
+        ).update(
+            transcription=update.text,
+            transcription_pending=False,
+        )
+
+    await save()
+    logger.debug("Транскрипция обновлена для сообщения #%d", update.msg_id)
+
+
+async def handle_message_edited(event):
+    from asgiref.sync import sync_to_async
+
+    message = event.message
+    chat = await event.get_chat()
+    if chat is None:
+        return
+
+    new_text = message.text or ""
+    edited_at = message.edit_date or timezone.now()
+
+    @sync_to_async
+    def update_message():
+        try:
+            msg = Message.objects.get(
+                chat__chat_id=chat.id,
+                message_id=message.id,
+            )
+        except Message.DoesNotExist:
+            return
+
+        # Сохраняем предыдущую версию в историю
+        if msg.text:
+            MessageEdit.objects.create(
+                message=msg,
+                text=msg.text,
+                edited_at=edited_at,
+            )
+
+        msg.text = new_text
+        msg.edited_at = edited_at
+        msg.save(update_fields=["text", "edited_at"])
+
+    await update_message()
+    logger.debug("Отредактировано сообщение #%d в чате %d", message.id, chat.id)
+
+
+async def handle_message_deleted(event):
+    from asgiref.sync import sync_to_async
+
+    deleted_ids = event.deleted_ids
+    chat = await event.get_chat()
+    chat_id = chat.id if chat else None
+
+    if not deleted_ids:
+        return
+
+    now = timezone.now()
+
+    @sync_to_async
+    def mark_deleted():
+        qs = Message.objects.filter(message_id__in=deleted_ids)
+        if chat_id:
+            qs = qs.filter(chat__chat_id=chat_id)
+        count = qs.update(is_deleted=True, deleted_at=now)
+        return count
+
+    count = await mark_deleted()
+    logger.debug(
+        "Помечено удалёнными %d сообщений (ids: %s)",
+        count,
+        deleted_ids[:5],
+    )
