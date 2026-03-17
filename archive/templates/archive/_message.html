@@ -24,8 +24,10 @@
 
         {% elif msg.message_type == "photo" %}
             {% if msg.media_url %}
-                <img src="{{ msg.media_url }}" class="msg-media-img" alt="Фото"
-                     onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'📷 Фото (файл недоступен)'}))">
+                <a href="{{ msg.media_url }}" target="_blank">
+                    <img src="{{ msg.media_url }}" class="msg-media-img" alt="Фото" style="cursor:zoom-in"
+                         onerror="this.closest('a').replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'📷 Фото (файл недоступен)'}))">
+                </a>
             {% else %}
                 <span class="badge bg-light text-dark">📷 Фото — ещё скачивается...</span>
             {% endif %}
