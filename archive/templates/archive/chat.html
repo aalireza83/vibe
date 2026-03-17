@@ -13,6 +13,7 @@
     #poll-indicator { font-size: 0.75em; }
     .bookmark-btn { background: none; border: none; padding: 0 2px; cursor: pointer; font-size: 1em; opacity: 0.4; transition: opacity .15s; }
     .bookmark-btn:hover, .bookmark-btn.active { opacity: 1; }
+    .reply-quote { border-left: 3px solid var(--navbar); padding: 2px 8px; border-radius: 3px; background: var(--badge-bg); }
 </style>
 {% endblock %}
 
@@ -29,6 +30,7 @@
     <div class="d-flex align-items-center gap-3">
         <span id="poll-indicator" class="text-muted"></span>
         <span class="text-muted small">{{ page_obj.paginator.count }} сообщений</span>
+        <a href="{% url 'chat_media' tg_chat.pk %}" class="btn btn-sm btn-outline-secondary">🖼 Медиа</a>
         <a href="{% url 'export_chat' tg_chat.pk %}?format=json" class="btn btn-sm btn-outline-secondary">JSON</a>
         <a href="{% url 'export_chat' tg_chat.pk %}?format=csv" class="btn btn-sm btn-outline-secondary">CSV</a>
     </div>

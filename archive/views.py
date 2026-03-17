@@ -101,6 +101,14 @@ def chat_detail(request, chat_id):
 
     has_filters = bool(msg_type or show_deleted or show_edited or show_bookmarked)
 
+    reply_ids = [m.reply_to_message_id for m in page_obj if m.reply_to_message_id]
+    replied_messages = {
+        m.message_id: m
+        for m in Message.objects.filter(
+            chat=tg_chat, message_id__in=reply_ids
+        ).select_related("sender")
+    } if reply_ids else {}
+
     return render(request, "archive/chat.html", {
         "tg_chat": tg_chat,
         "page_obj": page_obj,
@@ -112,6 +120,7 @@ def chat_detail(request, chat_id):
         "filter_params": filter_params,
         "has_filters": has_filters,
         "message_types": MessageType.choices,
+        "replied_messages": replied_messages,
     })
 
 
@@ -234,6 +243,30 @@ def api_toggle_bookmark(request, message_pk):
 
 
 @login_required
+def chat_media(request, chat_id):
+    tg_chat = get_object_or_404(TelegramChat, pk=chat_id)
+    media_type = request.GET.get("type", "")
+
+    qs = (
+        tg_chat.messages
+        .filter(message_type__in=["photo", "video", "gif"], media_path__isnull=False)
+        .order_by("-date")
+    )
+    if media_type in ("photo", "video", "gif"):
+        qs = qs.filter(message_type=media_type)
+
+    paginator = Paginator(qs, 60)
+    page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    return render(request, "archive/chat_media.html", {
+        "tg_chat": tg_chat,
+        "page_obj": page_obj,
+        "page_range": _page_range(page_obj.number, paginator.num_pages),
+        "media_type": media_type,
+    })
+
+
+@login_required
 def api_poll_chat(request, chat_id):
     tg_chat = get_object_or_404(TelegramChat, pk=chat_id)
     after_id = request.GET.get("after", 0)
@@ -248,8 +281,16 @@ def api_poll_chat(request, chat_id):
     if not new_messages.exists():
         return JsonResponse({"html": "", "latest_id": after_id})
 
+    reply_ids = [m.reply_to_message_id for m in new_messages if m.reply_to_message_id]
+    replied_messages = {
+        m.message_id: m
+        for m in Message.objects.filter(
+            chat=tg_chat, message_id__in=reply_ids
+        ).select_related("sender")
+    } if reply_ids else {}
+
     html = "".join(
-        render_to_string("archive/_message.html", {"msg": msg})
+        render_to_string("archive/_message.html", {"msg": msg, "replied_messages": replied_messages})
         for msg in new_messages
     )
     latest_id = new_messages.order_by("-message_id").values_list("message_id", flat=True).first()

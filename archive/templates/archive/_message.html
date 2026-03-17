@@ -1,3 +1,4 @@
+{% load archive_tags %}
 <div class="msg-bubble {% if msg.is_deleted %}deleted{% endif %}" id="msg-{{ msg.message_id }}">
     <div class="d-flex justify-content-between align-items-start">
         <div class="msg-meta">
@@ -19,6 +20,19 @@
                     title="{% if msg.bookmark %}Убрать закладку{% else %}Добавить закладку{% endif %}">🔖</button>
         </div>
     </div>
+
+    {% if msg.reply_to_message_id %}
+        {% with replied=replied_messages|get_item:msg.reply_to_message_id %}
+        <div class="reply-quote mt-1 mb-1">
+            {% if replied %}
+                <span class="text-muted small fw-semibold">{{ replied.sender.display_name|default:"?" }}</span>
+                <span class="text-muted small ms-1">{{ replied.text|default:replied.message_type|truncatechars:80 }}</span>
+            {% else %}
+                <span class="text-muted small fst-italic">↩ ответ на сообщение #{{ msg.reply_to_message_id }}</span>
+            {% endif %}
+        </div>
+        {% endwith %}
+    {% endif %}
 
     <div class="mt-1">
 

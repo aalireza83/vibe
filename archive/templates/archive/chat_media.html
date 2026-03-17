@@ -1,0 +1,93 @@
+{% extends "archive/base.html" %}
+{% block title %}Медиа — {{ tg_chat.display_name }} — Vibe Archive{% endblock %}
+
+{% block extra_css %}
+<style>
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px; }
+    .media-item { position: relative; aspect-ratio: 1; overflow: hidden; border-radius: 8px; background: var(--badge-bg); }
+    .media-item img, .media-item video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .media-item .media-type { position: absolute; top: 4px; left: 4px; font-size: 0.7em; }
+    .media-item .media-date { position: absolute; bottom: 4px; right: 6px; font-size: 0.7em; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+    .media-item a { display: block; width: 100%; height: 100%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'chats' %}">Чаты</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'chat_detail' tg_chat.pk %}">{{ tg_chat.display_name }}</a></li>
+        <li class="breadcrumb-item active">Медиа</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Медиа — {{ tg_chat.display_name }}</h5>
+    <span class="text-muted small">{{ page_obj.paginator.count }} файлов</span>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+    <a href="?type=" class="btn btn-sm {% if not media_type %}btn-primary{% else %}btn-outline-secondary{% endif %}">Все</a>
+    <a href="?type=photo" class="btn btn-sm {% if media_type == 'photo' %}btn-primary{% else %}btn-outline-secondary{% endif %}">📷 Фото</a>
+    <a href="?type=video" class="btn btn-sm {% if media_type == 'video' %}btn-primary{% else %}btn-outline-secondary{% endif %}">🎥 Видео</a>
+    <a href="?type=gif" class="btn btn-sm {% if media_type == 'gif' %}btn-primary{% else %}btn-outline-secondary{% endif %}">🎞 GIF</a>
+</div>
+
+{% if page_obj.paginator.count == 0 %}
+    <div class="text-muted text-center py-5">Нет медиафайлов</div>
+{% else %}
+<div class="media-grid">
+    {% for msg in page_obj %}
+    <div class="media-item">
+        {% if msg.message_type == "photo" %}
+            <a href="{{ msg.media_url }}" target="_blank" title="{{ msg.date|date:'d.m.Y H:i' }}">
+                <img src="{{ msg.media_url }}" loading="lazy" alt=""
+                     onerror="this.closest('.media-item').style.display='none'">
+            </a>
+        {% elif msg.message_type == "video" %}
+            <a href="{{ msg.media_url }}" target="_blank" title="{{ msg.date|date:'d.m.Y H:i' }}">
+                <video preload="none" muted>
+                    <source src="{{ msg.media_url }}">
+                </video>
+                <span class="media-type badge bg-dark">🎥{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+            </a>
+        {% elif msg.message_type == "gif" %}
+            <a href="{{ msg.media_url }}" target="_blank" title="{{ msg.date|date:'d.m.Y H:i' }}">
+                <video autoplay loop muted playsinline>
+                    <source src="{{ msg.media_url }}">
+                </video>
+                <span class="media-type badge bg-dark">GIF</span>
+            </a>
+        {% endif %}
+        <span class="media-date">{{ msg.date|date:"d.m" }}</span>
+    </div>
+    {% endfor %}
+</div>
+
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center flex-wrap">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?type={{ media_type }}&page={{ page_obj.previous_page_number }}">←</a>
+            </li>
+        {% endif %}
+        {% for p in page_range %}
+            {% if p is None %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% elif p == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+                <li class="page-item"><a class="page-link" href="?type={{ media_type }}&page={{ p }}">{{ p }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?type={{ media_type }}&page={{ page_obj.next_page_number }}">→</a>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endif %}
+{% endblock %}
