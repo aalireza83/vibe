@@ -104,7 +104,7 @@ LOGGING = {
     "loggers": {
         "archive": {
             "handlers": ["console"],
-            "level": "DEBUG",
+            "level": "INFO",
             "propagate": False,
         },
     },
