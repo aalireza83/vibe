@@ -97,14 +97,22 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
     chat_id = chat.id
 
     if isinstance(chat, Channel):
-        # каналы не архивируем
-        return None
-
-    if isinstance(chat, Chat):
+        # megagroup=True — супергруппа, False — канал
+        if not getattr(chat, "megagroup", False):
+            logger.debug("Пропускаем канал: %s (id=%d)", chat.title, chat_id)
+            return None
+        # Супергруппа — обрабатываем как группу
+        chat_type = ChatType.GROUP
+        title = chat.title
+        username = getattr(chat, "username", None)
+        member_count = getattr(chat, "participants_count", None)
+        logger.debug("Супергруппа: %s (id=%d), участников: %s", title, chat_id, member_count)
+    elif isinstance(chat, Chat):
         chat_type = ChatType.GROUP
         title = chat.title
         username = None
         member_count = getattr(chat, "participants_count", None)
+        logger.debug("Группа: %s (id=%d), участников: %s", title, chat_id, member_count)
     elif isinstance(chat, User):
         if chat.bot:
             chat_type = ChatType.BOT
@@ -113,20 +121,24 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
         title = " ".join(filter(None, [chat.first_name, chat.last_name]))
         username = chat.username
         member_count = None
+        logger.debug("Личка: %s (id=%d)", title, chat_id)
     else:
+        logger.debug("Неизвестный тип чата: %s (id=%d)", type(chat).__name__, chat_id)
         return None
 
     # Проверяем лимит участников для групп
     if chat_type == ChatType.GROUP:
         app_settings = await sync_to_async(AppSettings.get)()
-        if member_count and member_count > app_settings.max_group_members:
-            logger.debug(
-                "Пропускаем группу %s (%d участников, лимит %d)",
+        if member_count is not None and member_count > app_settings.max_group_members:
+            logger.info(
+                "Пропускаем группу '%s' (%d участников > лимита %d)",
                 title,
                 member_count,
                 app_settings.max_group_members,
             )
             return None
+        if member_count is None:
+            logger.debug("Группа '%s' — кол-во участников неизвестно, сохраняем", title)
 
     @sync_to_async
     def _get_or_create():

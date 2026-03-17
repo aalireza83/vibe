@@ -8,10 +8,10 @@
         </div>
         <div class="msg-meta d-flex align-items-center gap-2">
             {% if msg.is_deleted %}
-                <span class="text-danger">🗑 удалено {{ msg.deleted_at|date:"d.m H:i" }}</span>
+                <span class="text-danger" title="Удалено {% if msg.deleted_at %}{{ msg.deleted_at|date:"d.m.Y H:i" }}{% endif %}">🗑</span>
             {% endif %}
             {% if msg.edited_at %}
-                <span class="text-warning" title="Отредактировано {{ msg.edited_at }}">✏️</span>
+                <span class="text-warning" title="Отредактировано {{ msg.edited_at|date:"d.m.Y H:i" }}">✏️</span>
             {% endif %}
             <span>{{ msg.date|date:"d.m.Y H:i" }}</span>
         </div>
