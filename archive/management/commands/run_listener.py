@@ -159,12 +159,6 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
             logger.debug("Кеш для '%s': %d участников", title, member_count)
 
         if member_count is not None and member_count > app_settings.max_group_members:
-            logger.info(
-                "Пропускаем группу '%s' (%d участников > лимита %d)",
-                title,
-                member_count,
-                app_settings.max_group_members,
-            )
             return None
 
     @sync_to_async
@@ -328,7 +322,13 @@ class Command(BaseCommand):
                 logger.exception("Ошибка при обработке транскрипции: %s", exc)
 
         self.stdout.write("Слушаем сообщения... (Ctrl+C для остановки)")
-        await client.run_until_disconnected()
+        try:
+            await client.run_until_disconnected()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            await client.disconnect()
+            self.stdout.write(self.style.WARNING("\nListener остановлен."))
 
 
 async def handle_new_message(event, client):
