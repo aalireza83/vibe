@@ -6,7 +6,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
-from telethon.tl.functions.messages import TranscribeAudioRequest
+from telethon.tl.functions.channels import GetFullChannelRequest
+from telethon.tl.functions.messages import GetFullChatRequest, TranscribeAudioRequest
 from telethon.tl.types import (
     Channel,
     Chat,
@@ -129,6 +130,28 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
     # Проверяем лимит участников для групп
     if chat_type == ChatType.GROUP:
         app_settings = await sync_to_async(AppSettings.get)()
+
+        # Если count неизвестен — проверяем кеш в БД, иначе запрашиваем у Telegram
+        if member_count is None:
+            member_count = await sync_to_async(
+                lambda: TelegramChat.objects.filter(chat_id=chat_id)
+                .values_list("member_count", flat=True)
+                .first()
+            )()
+
+        if member_count is None:
+            # Первый раз видим этот чат — запрашиваем полную инфо у Telegram
+            try:
+                if isinstance(chat, Channel):
+                    full = await client(GetFullChannelRequest(chat))
+                    member_count = full.full_chat.participants_count
+                else:
+                    full = await client(GetFullChatRequest(chat_id))
+                    member_count = full.full_chat.participants_count
+                logger.info("Получили кол-во участников для '%s': %d", title, member_count)
+            except Exception as exc:
+                logger.warning("Не удалось получить участников для '%s': %s", title, exc)
+
         if member_count is not None and member_count > app_settings.max_group_members:
             logger.info(
                 "Пропускаем группу '%s' (%d участников > лимита %d)",
@@ -137,8 +160,6 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
                 app_settings.max_group_members,
             )
             return None
-        if member_count is None:
-            logger.debug("Группа '%s' — кол-во участников неизвестно, сохраняем", title)
 
     @sync_to_async
     def _get_or_create():
