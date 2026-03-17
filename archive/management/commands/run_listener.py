@@ -202,8 +202,11 @@ def extract_message_fields(message) -> dict:
         "contact_user_id": None,
     }
 
+    # Подпись/текст сохраняем сразу для всех типов (caption у фото, видео и т.д.)
+    if message.text:
+        fields["text"] = message.text
+
     if msg_type == MessageType.TEXT:
-        fields["text"] = message.text or ""
         return fields
 
     media = message.media
@@ -254,10 +257,6 @@ def extract_message_fields(message) -> dict:
             sticker = attrs["DocumentAttributeSticker"]
             fields["sticker_emoji"] = sticker.alt
             fields["sticker_set"] = getattr(sticker.stickerset, "short_name", None)
-
-    # Текстовая подпись к медиа
-    if message.text:
-        fields["text"] = message.text
 
     return fields
 
