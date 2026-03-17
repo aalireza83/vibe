@@ -218,6 +218,25 @@ class Message(models.Model):
         return f"{settings.MEDIA_URL}{relative}"
 
 
+class Bookmark(models.Model):
+    message = models.OneToOneField(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="bookmark",
+        verbose_name="Сообщение",
+    )
+    note = models.TextField(blank=True, null=True, verbose_name="Заметка")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Закладка"
+        verbose_name_plural = "Закладки"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Закладка на #{self.message_id}"
+
+
 class MessageEdit(models.Model):
     message = models.ForeignKey(
         Message,

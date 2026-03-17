@@ -11,6 +11,8 @@
     .msg-sticker { width: 120px; height: 120px; object-fit: contain; margin-top: 4px; display: block; }
     .msg-video-note { width: 200px; height: 200px; border-radius: 50%; object-fit: cover; margin-top: 6px; display: block; }
     #poll-indicator { font-size: 0.75em; }
+    .bookmark-btn { background: none; border: none; padding: 0 2px; cursor: pointer; font-size: 1em; opacity: 0.4; transition: opacity .15s; }
+    .bookmark-btn:hover, .bookmark-btn.active { opacity: 1; }
 </style>
 {% endblock %}
 
@@ -27,8 +29,36 @@
     <div class="d-flex align-items-center gap-3">
         <span id="poll-indicator" class="text-muted"></span>
         <span class="text-muted small">{{ page_obj.paginator.count }} сообщений</span>
+        <a href="{% url 'export_chat' tg_chat.pk %}?format=json" class="btn btn-sm btn-outline-secondary">JSON</a>
+        <a href="{% url 'export_chat' tg_chat.pk %}?format=csv" class="btn btn-sm btn-outline-secondary">CSV</a>
     </div>
 </div>
+
+{# Фильтры #}
+<form method="get" class="mb-3 d-flex flex-wrap gap-2 align-items-center">
+    <select name="type" class="form-select form-select-sm" style="width:auto">
+        <option value="">Все типы</option>
+        {% for val, label in message_types %}
+            <option value="{{ val }}" {% if msg_type == val %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+    </select>
+    <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" name="deleted" value="1" id="chk-deleted" {% if show_deleted %}checked{% endif %}>
+        <label class="form-check-label" for="chk-deleted">Удалённые</label>
+    </div>
+    <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" name="edited" value="1" id="chk-edited" {% if show_edited %}checked{% endif %}>
+        <label class="form-check-label" for="chk-edited">Редактированные</label>
+    </div>
+    <div class="form-check mb-0">
+        <input class="form-check-input" type="checkbox" name="bookmarked" value="1" id="chk-bookmarked" {% if show_bookmarked %}checked{% endif %}>
+        <label class="form-check-label" for="chk-bookmarked">Закладки</label>
+    </div>
+    <button type="submit" class="btn btn-sm btn-primary">Применить</button>
+    {% if has_filters %}
+        <a href="{% url 'chat_detail' tg_chat.pk %}" class="btn btn-sm btn-outline-secondary">Сбросить</a>
+    {% endif %}
+</form>
 
 <div id="messages-container">
     {% for msg in page_obj %}
@@ -38,18 +68,24 @@
 
 {% if page_obj.has_other_pages %}
 <nav class="mt-4">
-    <ul class="pagination justify-content-center">
+    <ul class="pagination justify-content-center flex-wrap">
         {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">← Новее</a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{{ filter_params }}">←</a>
             </li>
         {% endif %}
-        <li class="page-item disabled">
-            <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-        </li>
+        {% for p in page_range %}
+            {% if p is None %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% elif p == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+                <li class="page-item"><a class="page-link" href="?page={{ p }}{{ filter_params }}">{{ p }}</a></li>
+            {% endif %}
+        {% endfor %}
         {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Старше →</a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{{ filter_params }}">→</a>
             </li>
         {% endif %}
     </ul>
@@ -58,7 +94,25 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if page_obj.number == 1 %}
+<script>
+    const CSRF = '{{ csrf_token }}';
+
+    document.addEventListener('click', e => {
+        const btn = e.target.closest('.bookmark-btn');
+        if (!btn) return;
+        fetch(`/api/message/${btn.dataset.pk}/bookmark/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': CSRF},
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.classList.toggle('active', data.bookmarked);
+            btn.title = data.bookmarked ? 'Убрать закладку' : 'Добавить закладку';
+        });
+    });
+</script>
+
+{% if page_obj.number == 1 and not has_filters %}
 <script>
     const CHAT_ID = {{ tg_chat.pk }};
     const POLL_INTERVAL = 10000;
@@ -73,15 +127,13 @@
             const data = await resp.json();
             if (data.html) {
                 container.insertAdjacentHTML('afterbegin', data.html);
+                renderMarkdown(container);
                 latestId = data.latest_id;
                 indicator.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
             }
-        } catch (e) {
-            // тихо игнорируем сетевые ошибки
-        }
+        } catch (e) {}
     }
 
-    // Опрашиваем только на первой странице (самые новые сообщения)
     setInterval(pollMessages, POLL_INTERVAL);
 </script>
 {% endif %}

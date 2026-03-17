@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AppSettings, Message, MessageEdit, TelegramChat, TelegramUser
+from .models import AppSettings, Bookmark, Message, MessageEdit, TelegramChat, TelegramUser
 
 
 @admin.register(AppSettings)
@@ -42,6 +42,12 @@ class MessageEditInline(admin.TabularInline):
     readonly_fields = ("text", "edited_at")
     extra = 0
     can_delete = False
+
+
+@admin.register(Bookmark)
+class BookmarkAdmin(admin.ModelAdmin):
+    list_display = ("message", "note", "created_at")
+    readonly_fields = ("message", "created_at")
 
 
 @admin.register(Message)

@@ -14,13 +14,16 @@
                 <span class="text-warning" title="Отредактировано {{ msg.edited_at|date:"d.m.Y H:i" }}">✏️</span>
             {% endif %}
             <span>{{ msg.date|date:"d.m.Y H:i" }}</span>
+            <button class="bookmark-btn {% if msg.bookmark %}active{% endif %}"
+                    data-pk="{{ msg.pk }}"
+                    title="{% if msg.bookmark %}Убрать закладку{% else %}Добавить закладку{% endif %}">🔖</button>
         </div>
     </div>
 
     <div class="mt-1">
 
         {% if msg.message_type == "text" %}
-            <p class="mb-0" style="white-space:pre-wrap">{{ msg.text }}</p>
+            <div class="mb-0 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>
 
         {% elif msg.message_type == "photo" %}
             {% if msg.media_url %}
@@ -31,7 +34,7 @@
             {% else %}
                 <span class="badge bg-light text-dark">📷 Фото — ещё скачивается...</span>
             {% endif %}
-            {% if msg.text %}<p class="mb-0 mt-1" style="white-space:pre-wrap">{{ msg.text }}</p>{% endif %}
+            {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
         {% elif msg.message_type == "sticker" %}
             {% if msg.media_url %}
@@ -56,7 +59,7 @@
             {% else %}
                 <span class="badge bg-light text-dark">🎞 GIF — ещё скачивается...</span>
             {% endif %}
-            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+            {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
         {% elif msg.message_type == "video" %}
             {% if msg.media_url %}
@@ -67,7 +70,7 @@
             {% else %}
                 <span class="badge bg-light text-dark">🎥 Видео{% if msg.duration %} {{ msg.duration }}с{% endif %} — превью скачивается...</span>
             {% endif %}
-            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+            {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
         {% elif msg.message_type == "voice" %}
             {% if msg.media_url %}
@@ -127,7 +130,7 @@
             {% else %}
                 <span class="badge bg-light text-dark">📄 {{ msg.file_name|default:"Документ" }}{% if msg.file_size %} · {{ msg.file_size|filesizeformat }}{% endif %}</span>
             {% endif %}
-            {% if msg.text %}<p class="mb-0 mt-1">{{ msg.text }}</p>{% endif %}
+            {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
         {% elif msg.message_type == "poll" %}
             <span class="badge bg-light text-dark">📊 Опрос</span>
