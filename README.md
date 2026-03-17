@@ -1,111 +1,132 @@
 # Vibe Archive
 
-Личный архив Telegram-переписок. Подключается к твоему аккаунту через MTProto API и сохраняет все входящие сообщения в PostgreSQL — текст, медиа, голосовые с транскрипцией. Сообщения остаются даже если собеседник их удалит.
+Personal Telegram archive. Connects to your account via MTProto API and saves all incoming messages to PostgreSQL — text, media, voice with transcription. Messages are preserved even if the other party deletes them.
 
-## Возможности
+## Features
 
-- Архивирует личные переписки, боты, группы до N участников
-- Все типы сообщений: текст, фото, видео, голосовые, кружки, стикеры, GIF, документы, опросы, геолокация, контакты
-- Транскрипция голосовых и кружков через Telegram Premium API
-- История редактирований сообщений
-- Логирование удалённых сообщений
-- Полнотекстовый поиск по-русски (PostgreSQL FTS)
-- Веб-интерфейс с real-time обновлением (polling)
-- Настройки через Django admin (лимит участников группы, скачивание файлов)
+- Archives private chats, bots, and groups up to N members
+- All message types: text, photos, videos, voice messages, video notes, stickers, GIFs, documents, polls, locations, contacts
+- Voice and video note transcription via Telegram Premium API
+- Message edit history
+- Deleted message logging
+- Full-text search (PostgreSQL FTS)
+- Web UI with real-time updates (polling)
+- Media gallery per chat (photos, videos, GIFs)
+- Bookmarks
+- Message filters: by type, deleted, edited, bookmarked
+- Export chat to JSON or CSV
+- Reply quotes
+- Dark / light theme
+- Settings via Django admin (group member limit, file downloads)
 
-## Стек
+## Stack
 
 - Python 3.13
 - Django 5+ + PostgreSQL
 - Telethon (Telegram MTProto)
 - Bootstrap 5
 
-## Установка
+## Installation
 
-### 1. Получить Telegram API credentials
+### 1. Get Telegram API credentials
 
-Зайди на [my.telegram.org](https://my.telegram.org) → API development tools → создай приложение. Запиши `api_id` и `api_hash`.
+Go to [my.telegram.org](https://my.telegram.org) → API development tools → create an app. Save `api_id` and `api_hash`.
 
-### 2. Клонировать и установить зависимости
+### 2. Clone and install dependencies
 
 ```bash
-git clone <repo>
+git clone https://github.com/vladrunk/vibe.git
 cd vibe
 uv sync
 ```
 
-### 3. Создать базу данных
+### 3. Create database
 
 ```bash
 psql postgres
 ```
 
 ```sql
-CREATE USER jesus WITH PASSWORD 'yourpassword';
-CREATE DATABASE vibe OWNER jesus;
+CREATE USER vibe WITH PASSWORD 'yourpassword';
+CREATE DATABASE vibe OWNER vibe;
 \q
 ```
 
-### 4. Настроить окружение
+### 4. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Заполнить `.env`:
+Fill in `.env`:
 
 ```ini
-SECRET_KEY=django-insecure-замени-на-случайную-строку
+SECRET_KEY=django-insecure-replace-with-random-string
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 
 DB_NAME=vibe
-DB_USER=jesus
+DB_USER=vibe
 DB_PASSWORD=yourpassword
 DB_HOST=localhost
 DB_PORT=5432
 
 TG_API_ID=12345678
 TG_API_HASH=abcdef1234567890abcdef1234567890
-TG_PHONE=+380XXXXXXXXX
+TG_PHONE=+1XXXXXXXXXX
 ```
 
-> Файл сессии создаётся автоматически: `{номер без +}.session`
+> Session file is created automatically: `{phone_without_plus}.session`
 
-### 5. Применить миграции и создать суперпользователя
+### 5. Apply migrations and create superuser
 
 ```bash
 uv run python manage.py migrate
 uv run python manage.py createsuperuser
 ```
 
-### 6. Запуск
+### 6. Run
 
-Два терминала одновременно:
+Two terminals simultaneously:
 
 ```bash
-# Терминал 1 — веб-интерфейс
+# Terminal 1 — web interface
 uv run python manage.py runserver
 
-# Терминал 2 — Telegram listener
+# Terminal 2 — Telegram listener
 uv run python manage.py run_listener
 ```
 
-При первом запуске listener запросит код из Telegram и пароль (если есть двухфакторная аутентификация). После этого сессия сохраняется и повторная авторизация не нужна.
+On first run the listener will ask for a Telegram confirmation code and password (if two-factor authentication is enabled). After that the session is saved and re-authorization is not needed.
 
-Веб-интерфейс: [http://localhost:8000](http://localhost:8000)
-Админка: [http://localhost:8000/admin](http://localhost:8000/admin)
+Web UI: [http://localhost:8000](http://localhost:8000)
+Admin: [http://localhost:8000/admin](http://localhost:8000/admin)
 
-## Настройки (админка)
+## Sync history
 
-| Параметр | По умолчанию | Описание |
-|----------|-------------|----------|
-| Макс. участников в группе | 50 | Группы с большим числом игнорируются |
-| Скачивать аудио | Нет | Скачивать музыкальные файлы |
-| Скачивать документы | Нет | Скачивать файлы документов |
-| Макс. размер файла (МБ) | 50 | Файлы больше не скачиваются |
+To backfill messages without running the listener:
 
-## Структура медиафайлов
+```bash
+# Last 7 days (default)
+uv run python manage.py sync_history
+
+# Last 30 days
+uv run python manage.py sync_history --days 30
+
+# Specific chat
+uv run python manage.py sync_history --chat 123456789
+```
+
+## Admin settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Max group members | 50 | Groups above this limit are ignored |
+| Download audio | No | Download music files |
+| Download documents | No | Download document files |
+| Max file size (MB) | 50 | Files larger than this are skipped |
+
+## Media structure
 
 ```
 media/
