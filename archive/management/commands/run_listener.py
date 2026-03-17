@@ -157,6 +157,19 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
                 logger.warning("Не удалось получить участников для '%s': %s", title, exc)
 
         if member_count is not None and member_count > app_settings.max_group_members:
+            # Сохраняем в БД даже для игнорируемых групп — чтобы кеш пережил рестарт
+            @sync_to_async
+            def save_ignored_chat():
+                TelegramChat.objects.update_or_create(
+                    chat_id=chat_id,
+                    defaults={
+                        "title": title,
+                        "username": getattr(chat, "username", None),
+                        "chat_type": ChatType.GROUP,
+                        "member_count": member_count,
+                    },
+                )
+            await save_ignored_chat()
             return None
 
     @sync_to_async
@@ -274,8 +287,24 @@ class Command(BaseCommand):
         logger.info("Авторизован как: %s (id=%d)", me.first_name, me.id)
         self.stdout.write(self.style.SUCCESS(f"Авторизован как: {me.first_name} (id={me.id})"))
 
-        # Сохраняем себя как TelegramUser
         from asgiref.sync import sync_to_async
+
+        # Загружаем member_count из БД в кеш — чтобы не дёргать Telegram после рестарта
+        @sync_to_async
+        def load_member_count_cache():
+            count = 0
+            for chat_id, mc in TelegramChat.objects.filter(
+                member_count__isnull=False
+            ).values_list("chat_id", "member_count"):
+                _member_count_cache[chat_id] = mc
+                count += 1
+            return count
+
+        cached = await load_member_count_cache()
+        if cached:
+            self.stdout.write(f"Загружено из БД: {cached} чатов с кол-вом участников")
+
+        # Сохраняем себя как TelegramUser
 
         @sync_to_async
         def save_me():
