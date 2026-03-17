@@ -39,7 +39,7 @@
                     </video>
                 {% else %}
                     <img src="{{ msg.media_url }}" class="msg-sticker" alt="{{ msg.sticker_emoji|default:'стикер' }}"
-                         onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎭 {{ msg.sticker_emoji|default:&quot;Стикер&quot; }}'}))">
+                         onerror="this.style.display='none'">
                 {% endif %}
             {% else %}
                 <span class="badge bg-light text-dark">🎭 {{ msg.sticker_emoji|default:"Стикер" }}</span>
