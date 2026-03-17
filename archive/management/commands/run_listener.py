@@ -452,10 +452,9 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
     save_dir = Path(django_settings.MEDIA_ROOT) / str(tg_chat.chat_id) / type_dir
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    # Фото — небольшой размер, остальное — полный файл
+    # Скачиваем оригинальный файл для всех типов
+    # Фото показывается уменьшенным через CSS, по клику открывается в полный размер
     thumb = None
-    if msg_type == MessageType.PHOTO:
-        thumb = 1  # небольшой размер, не оригинал
 
     async with _download_semaphore:
         try:
