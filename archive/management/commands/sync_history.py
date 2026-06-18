@@ -21,23 +21,23 @@ logger = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
-    help = "Синхронизирует историю сообщений за последние N дней"
+    help = "Synchronizes message history for the last N days"
 
     def add_arguments(self, parser):
         parser.add_argument(
             "--days", type=int, default=7,
-            help="Глубина синхронизации в днях (по умолчанию: 7)",
+            help="Sync depth in days (default: 7)",
         )
         parser.add_argument(
             "--chat", type=int, default=None,
-            help="Telegram ID конкретного чата (по умолчанию: все)",
+            help="Telegram ID of a specific chat (default: all)",
         )
 
     def handle(self, *args, **options):
         try:
             asyncio.run(self._run(options["days"], options["chat"]))
         except KeyboardInterrupt:
-            self.stdout.write(self.style.WARNING("\nОстановлено."))
+            self.stdout.write(self.style.WARNING("\nStopped."))
 
     async def _run(self, days, chat_id_filter):
         from asgiref.sync import sync_to_async
@@ -49,9 +49,9 @@ class Command(BaseCommand):
         )
 
         await client.start(phone=settings.TG_PHONE)
-        self.stdout.write(self.style.SUCCESS(f"Синхронизация за последние {days} дней..."))
+        self.stdout.write(self.style.SUCCESS(f"Synchronizing the last {days} days..."))
 
-        # Загружаем кеш участников из БД
+        # Load member count cache from the database.
         @sync_to_async
         def load_cache():
             for chat_id, mc in TelegramChat.objects.filter(
@@ -65,17 +65,17 @@ class Command(BaseCommand):
         since = datetime.now(timezone.utc) - timedelta(days=days)
 
         if chat_id_filter:
-            # Синхронизируем конкретный чат
+            # Synchronize one specific chat.
             try:
                 entity = await client.get_entity(chat_id_filter)
                 dialogs = [entity]
             except Exception as exc:
-                self.stdout.write(self.style.ERROR(f"Чат {chat_id_filter} не найден: {exc}"))
+                self.stdout.write(self.style.ERROR(f"Chat {chat_id_filter} was not found: {exc}"))
                 await client.disconnect()
                 return
         else:
-            # Все диалоги
-            self.stdout.write("Получаем список диалогов...")
+            # All dialogs.
+            self.stdout.write("Fetching dialog list...")
             dialogs = [d.entity async for d in client.iter_dialogs()]
 
         total_saved = 0
@@ -87,11 +87,11 @@ class Command(BaseCommand):
 
             count = await self._sync_chat(client, entity, tg_chat, since)
             if count > 0:
-                self.stdout.write(f"  {tg_chat.display_name}: +{count} сообщений")
+                self.stdout.write(f"  {tg_chat.display_name}: +{count} messages")
             total_saved += count
 
         await client.disconnect()
-        self.stdout.write(self.style.SUCCESS(f"\nГотово. Сохранено: {total_saved} сообщений."))
+        self.stdout.write(self.style.SUCCESS(f"\nDone. Saved: {total_saved} messages."))
 
     async def _get_or_create_chat(self, entity, client, app_settings) -> TelegramChat | None:
         from asgiref.sync import sync_to_async
@@ -167,7 +167,7 @@ class Command(BaseCommand):
                 reverse=True,
                 offset_date=since,
             ):
-                # Пропускаем сервисные сообщения (вступление в группу и т.д.)
+                # Skip service messages, such as group joins.
                 if message.action is not None:
                     continue
 
@@ -209,9 +209,9 @@ class Command(BaseCommand):
                     count += 1
 
         except FloodWaitError as exc:
-            self.stdout.write(self.style.WARNING(f"  FloodWait {exc.seconds}с для {tg_chat}..."))
+            self.stdout.write(self.style.WARNING(f"  FloodWait {exc.seconds}s for {tg_chat}..."))
             await asyncio.sleep(exc.seconds)
         except Exception as exc:
-            self.stdout.write(self.style.ERROR(f"  Ошибка для {tg_chat}: {exc}"))
+            self.stdout.write(self.style.ERROR(f"  Error for {tg_chat}: {exc}"))
 
         return count

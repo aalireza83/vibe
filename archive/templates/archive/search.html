@@ -1,17 +1,17 @@
 {% extends "archive/base.html" %}
-{% block title %}Поиск — Vibe Archive{% endblock %}
+{% block title %}Search - Vibe Archive{% endblock %}
 
 {% block content %}
-<h5 class="mb-3">Поиск</h5>
+<h5 class="mb-3">Search</h5>
 
 <form method="get" class="mb-4">
     <div class="row g-2 align-items-end">
         <div class="col-md-6">
-            <input type="text" name="q" class="form-control" placeholder="Введите запрос..." value="{{ query }}" autofocus>
+            <input type="text" name="q" class="form-control" placeholder="Enter a query..." value="{{ query }}" autofocus>
         </div>
         <div class="col-md-4">
             <select name="chat" class="form-select">
-                <option value="">Все чаты</option>
+                <option value="">All chats</option>
                 {% for chat in all_chats %}
                     <option value="{{ chat.pk }}" {% if chat.pk|stringformat:"s" == chat_filter %}selected{% endif %}>
                         {{ chat.display_name }}
@@ -20,16 +20,16 @@
             </select>
         </div>
         <div class="col-md-2">
-            <button type="submit" class="btn btn-primary w-100">Найти</button>
+            <button type="submit" class="btn btn-primary w-100">Search</button>
         </div>
     </div>
 </form>
 
 {% if query %}
     {% if page_obj.paginator.count == 0 %}
-        <div class="text-muted text-center py-4">Ничего не найдено по запросу «{{ query }}»</div>
+        <div class="text-muted text-center py-4">No results found for "{{ query }}"</div>
     {% else %}
-        <div class="text-muted small mb-3">Найдено: {{ page_obj.paginator.count }}</div>
+        <div class="text-muted small mb-3">Found: {{ page_obj.paginator.count }}</div>
 
         {% for msg in page_obj %}
         <div class="card mb-2 shadow-sm">
@@ -58,7 +58,7 @@
                         {{ msg.text|default:""|truncatechars:300 }}
                     {% endif %}
                 </div>
-                {% if msg.is_deleted %}<span class="badge bg-danger mt-1">удалено</span>{% endif %}
+                {% if msg.is_deleted %}<span class="badge bg-danger mt-1">deleted</span>{% endif %}
             </div>
         </div>
         {% endfor %}

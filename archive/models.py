@@ -7,29 +7,29 @@ from django.conf import settings
 class AppSettings(models.Model):
     max_group_members = models.IntegerField(
         default=50,
-        verbose_name="Макс. участников в группе",
-        help_text="Группы с бо́льшим числом участников игнорируются",
+        verbose_name="Max group members",
+        help_text="Groups with more members are ignored",
     )
     download_audio = models.BooleanField(
         default=False,
-        verbose_name="Скачивать аудио",
+        verbose_name="Download audio",
     )
     download_documents = models.BooleanField(
         default=False,
-        verbose_name="Скачивать документы",
+        verbose_name="Download documents",
     )
     max_file_size_mb = models.IntegerField(
         default=50,
-        verbose_name="Макс. размер файла (МБ)",
-        help_text="Файлы больше этого размера не скачиваются",
+        verbose_name="Max file size (MB)",
+        help_text="Files larger than this size are not downloaded",
     )
 
     class Meta:
-        verbose_name = "Настройки"
-        verbose_name_plural = "Настройки"
+        verbose_name = "Settings"
+        verbose_name_plural = "Settings"
 
     def __str__(self):
-        return "Настройки приложения"
+        return "Application settings"
 
     @classmethod
     def get(cls):
@@ -40,15 +40,15 @@ class AppSettings(models.Model):
 class TelegramUser(models.Model):
     user_id = models.BigIntegerField(unique=True, verbose_name="Telegram ID")
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name="Username")
-    first_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Имя")
-    last_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Фамилия")
-    is_self = models.BooleanField(default=False, verbose_name="Это я")
+    first_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="First name")
+    last_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Last name")
+    is_self = models.BooleanField(default=False, verbose_name="This is me")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Пользователь Telegram"
-        verbose_name_plural = "Пользователи Telegram"
+        verbose_name = "Telegram user"
+        verbose_name_plural = "Telegram users"
 
     def __str__(self):
         if self.username:
@@ -65,22 +65,22 @@ class TelegramUser(models.Model):
 
 
 class ChatType(models.TextChoices):
-    PRIVATE = "private", "Личная переписка"
-    GROUP = "group", "Группа"
-    BOT = "bot", "Бот"
+    PRIVATE = "private", "Private chat"
+    GROUP = "group", "Group"
+    BOT = "bot", "Bot"
 
 
 class TelegramChat(models.Model):
-    chat_id = models.BigIntegerField(unique=True, verbose_name="Telegram ID чата")
-    title = models.CharField(max_length=255, blank=True, null=True, verbose_name="Название")
+    chat_id = models.BigIntegerField(unique=True, verbose_name="Telegram chat ID")
+    title = models.CharField(max_length=255, blank=True, null=True, verbose_name="Title")
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name="Username")
-    chat_type = models.CharField(max_length=20, choices=ChatType.choices, verbose_name="Тип")
-    member_count = models.IntegerField(blank=True, null=True, verbose_name="Участников")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+    chat_type = models.CharField(max_length=20, choices=ChatType.choices, verbose_name="Type")
+    member_count = models.IntegerField(blank=True, null=True, verbose_name="Members")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated")
 
     class Meta:
-        verbose_name = "Чат"
-        verbose_name_plural = "Чаты"
+        verbose_name = "Chat"
+        verbose_name_plural = "Chats"
         indexes = [
             models.Index(fields=["-updated_at"]),
         ]
@@ -94,28 +94,28 @@ class TelegramChat(models.Model):
 
 
 class MessageType(models.TextChoices):
-    TEXT = "text", "Текст"
-    PHOTO = "photo", "Фото"
-    VIDEO = "video", "Видео"
-    AUDIO = "audio", "Аудио"
-    VOICE = "voice", "Голосовое"
-    VIDEO_NOTE = "video_note", "Кружок"
-    STICKER = "sticker", "Стикер"
+    TEXT = "text", "Text"
+    PHOTO = "photo", "Photo"
+    VIDEO = "video", "Video"
+    AUDIO = "audio", "Audio"
+    VOICE = "voice", "Voice"
+    VIDEO_NOTE = "video_note", "Video note"
+    STICKER = "sticker", "Sticker"
     GIF = "gif", "GIF"
-    DOCUMENT = "document", "Документ"
-    POLL = "poll", "Опрос"
-    LOCATION = "location", "Геолокация"
-    CONTACT = "contact", "Контакт"
-    UNKNOWN = "unknown", "Неизвестно"
+    DOCUMENT = "document", "Document"
+    POLL = "poll", "Poll"
+    LOCATION = "location", "Location"
+    CONTACT = "contact", "Contact"
+    UNKNOWN = "unknown", "Unknown"
 
 
 class Message(models.Model):
-    message_id = models.BigIntegerField(verbose_name="Telegram ID сообщения")
+    message_id = models.BigIntegerField(verbose_name="Telegram message ID")
     chat = models.ForeignKey(
         TelegramChat,
         on_delete=models.CASCADE,
         related_name="messages",
-        verbose_name="Чат",
+        verbose_name="Chat",
     )
     sender = models.ForeignKey(
         TelegramUser,
@@ -123,71 +123,71 @@ class Message(models.Model):
         null=True,
         blank=True,
         related_name="messages",
-        verbose_name="Отправитель",
+        verbose_name="Sender",
     )
-    date = models.DateTimeField(verbose_name="Дата отправки")
+    date = models.DateTimeField(verbose_name="Sent at")
     message_type = models.CharField(
         max_length=20,
         choices=MessageType.choices,
         default=MessageType.TEXT,
-        verbose_name="Тип",
+        verbose_name="Type",
     )
 
-    # Контент
-    text = models.TextField(blank=True, null=True, verbose_name="Текст")
-    media_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="Путь к файлу")
-    file_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Имя файла")
-    file_size = models.BigIntegerField(blank=True, null=True, verbose_name="Размер файла (байт)")
-    duration = models.IntegerField(blank=True, null=True, verbose_name="Длительность (сек)")
+    # Content
+    text = models.TextField(blank=True, null=True, verbose_name="Text")
+    media_path = models.CharField(max_length=500, blank=True, null=True, verbose_name="File path")
+    file_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="File name")
+    file_size = models.BigIntegerField(blank=True, null=True, verbose_name="File size (bytes)")
+    duration = models.IntegerField(blank=True, null=True, verbose_name="Duration (seconds)")
 
-    # Стикер
-    sticker_emoji = models.CharField(max_length=10, blank=True, null=True, verbose_name="Эмодзи стикера")
-    sticker_set = models.CharField(max_length=255, blank=True, null=True, verbose_name="Набор стикеров")
+    # Sticker
+    sticker_emoji = models.CharField(max_length=10, blank=True, null=True, verbose_name="Sticker emoji")
+    sticker_set = models.CharField(max_length=255, blank=True, null=True, verbose_name="Sticker set")
 
-    # Аудио
-    audio_title = models.CharField(max_length=255, blank=True, null=True, verbose_name="Название трека")
-    audio_artist = models.CharField(max_length=255, blank=True, null=True, verbose_name="Исполнитель")
+    # Audio
+    audio_title = models.CharField(max_length=255, blank=True, null=True, verbose_name="Track title")
+    audio_artist = models.CharField(max_length=255, blank=True, null=True, verbose_name="Artist")
 
-    # Опрос
-    poll_question = models.TextField(blank=True, null=True, verbose_name="Вопрос опроса")
-    poll_options = models.JSONField(blank=True, null=True, verbose_name="Варианты ответа")
+    # Poll
+    poll_question = models.TextField(blank=True, null=True, verbose_name="Poll question")
+    poll_options = models.JSONField(blank=True, null=True, verbose_name="Answer options")
 
-    # Геолокация
-    latitude = models.FloatField(blank=True, null=True, verbose_name="Широта")
-    longitude = models.FloatField(blank=True, null=True, verbose_name="Долгота")
+    # Location
+    latitude = models.FloatField(blank=True, null=True, verbose_name="Latitude")
+    longitude = models.FloatField(blank=True, null=True, verbose_name="Longitude")
 
-    # Контакт
-    contact_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Имя контакта")
-    contact_phone = models.CharField(max_length=50, blank=True, null=True, verbose_name="Телефон контакта")
-    contact_user_id = models.BigIntegerField(blank=True, null=True, verbose_name="Telegram ID контакта")
+    # Contact
+    contact_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Contact name")
+    contact_phone = models.CharField(max_length=50, blank=True, null=True, verbose_name="Contact phone")
+    contact_user_id = models.BigIntegerField(blank=True, null=True, verbose_name="Telegram contact ID")
 
-    # Транскрипция (голосовые и кружки)
-    transcription = models.TextField(blank=True, null=True, verbose_name="Транскрипция")
-    transcription_pending = models.BooleanField(default=False, verbose_name="Транскрипция в процессе")
+    # Transcription (voice messages and video notes)
+    transcription = models.TextField(blank=True, null=True, verbose_name="Transcription")
+    transcription_pending = models.BooleanField(default=False, verbose_name="Transcription in progress")
 
-    # Пересылка
-    is_forwarded = models.BooleanField(default=False, verbose_name="Пересланное")
-    forward_from_id = models.BigIntegerField(blank=True, null=True, verbose_name="Переслано от (ID)")
-    forward_from_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Переслано от (имя)")
+    # Forwarding
+    is_forwarded = models.BooleanField(default=False, verbose_name="Forwarded")
+    forward_from_id = models.BigIntegerField(blank=True, null=True, verbose_name="Forwarded from (ID)")
+    forward_from_name = models.CharField(max_length=255, blank=True, null=True, verbose_name="Forwarded from (name)")
 
-    # Ответ
-    reply_to_message_id = models.BigIntegerField(blank=True, null=True, verbose_name="Ответ на сообщение ID")
+    # Reply
+    reply_to_message_id = models.BigIntegerField(blank=True, null=True, verbose_name="Reply to message ID")
 
-    # Редактирование
-    edited_at = models.DateTimeField(blank=True, null=True, verbose_name="Отредактировано")
+    # Editing
+    edited_at = models.DateTimeField(blank=True, null=True, verbose_name="Edited")
 
-    # Удаление
-    is_deleted = models.BooleanField(default=False, verbose_name="Удалено")
-    deleted_at = models.DateTimeField(blank=True, null=True, verbose_name="Удалено в")
+    # Deletion
+    is_deleted = models.BooleanField(default=False, verbose_name="Deleted")
+    deleted_at = models.DateTimeField(blank=True, null=True, verbose_name="Deleted at")
 
-    # Полнотекстовый поиск
+    # Full-text search
     search_vector = SearchVectorField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Сообщение"
-        verbose_name_plural = "Сообщения"
+        verbose_name = "Message"
+        verbose_name_plural = "Messages"
         constraints = [
             models.UniqueConstraint(fields=["chat", "message_id"], name="unique_message_in_chat"),
         ]
@@ -223,18 +223,18 @@ class Bookmark(models.Model):
         Message,
         on_delete=models.CASCADE,
         related_name="bookmark",
-        verbose_name="Сообщение",
+        verbose_name="Message",
     )
-    note = models.TextField(blank=True, null=True, verbose_name="Заметка")
+    note = models.TextField(blank=True, null=True, verbose_name="Note")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Закладка"
-        verbose_name_plural = "Закладки"
+        verbose_name = "Bookmark"
+        verbose_name_plural = "Bookmarks"
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"Закладка на #{self.message_id}"
+        return f"Bookmark for #{self.message_id}"
 
 
 class MessageEdit(models.Model):
@@ -242,15 +242,15 @@ class MessageEdit(models.Model):
         Message,
         on_delete=models.CASCADE,
         related_name="edits",
-        verbose_name="Сообщение",
+        verbose_name="Message",
     )
-    text = models.TextField(verbose_name="Текст до редактирования")
-    edited_at = models.DateTimeField(verbose_name="Время редактирования")
+    text = models.TextField(verbose_name="Text before edit")
+    edited_at = models.DateTimeField(verbose_name="Edit time")
 
     class Meta:
-        verbose_name = "История правок"
-        verbose_name_plural = "История правок"
+        verbose_name = "Edit history"
+        verbose_name_plural = "Edit history"
         ordering = ["edited_at"]
 
     def __str__(self):
-        return f"Правка сообщения #{self.message_id} в {self.edited_at}"
+        return f"Edit for message #{self.message_id} at {self.edited_at}"

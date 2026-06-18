@@ -6,10 +6,10 @@ from .models import AppSettings, Bookmark, Message, MessageEdit, TelegramChat, T
 @admin.register(AppSettings)
 class AppSettingsAdmin(admin.ModelAdmin):
     fieldsets = (
-        ("Фильтрация чатов", {
+        ("Chat Filtering", {
             "fields": ("max_group_members",),
         }),
-        ("Загрузка файлов", {
+        ("File Downloads", {
             "fields": ("download_audio", "download_documents", "max_file_size_mb"),
         }),
     )

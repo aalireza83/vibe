@@ -1,5 +1,5 @@
 {% extends "archive/base.html" %}
-{% block title %}Закладки — Vibe Archive{% endblock %}
+{% block title %}Bookmarks - Vibe Archive{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -15,12 +15,12 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Закладки</h5>
+    <h5 class="mb-0">Bookmarks</h5>
     <span class="text-muted small">{{ page_obj.paginator.count }}</span>
 </div>
 
 {% if page_obj.paginator.count == 0 %}
-    <div class="text-muted text-center py-5">Нет закладок. Нажмите 🔖 рядом с сообщением.</div>
+    <div class="text-muted text-center py-5">No bookmarks yet. Press 🔖 next to a message.</div>
 {% else %}
     {% for bookmark in page_obj %}
         <div class="mb-1">
@@ -76,7 +76,7 @@
         .then(r => r.json())
         .then(data => {
             btn.classList.toggle('active', data.bookmarked);
-            btn.title = data.bookmarked ? 'Убрать закладку' : 'Добавить закладку';
+            btn.title = data.bookmarked ? 'Remove bookmark' : 'Add bookmark';
             if (!data.bookmarked) {
                 btn.closest('.mb-1')?.remove();
             }

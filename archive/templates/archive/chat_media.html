@@ -1,5 +1,5 @@
 {% extends "archive/base.html" %}
-{% block title %}Медиа — {{ tg_chat.display_name }} — Vibe Archive{% endblock %}
+{% block title %}Media - {{ tg_chat.display_name }} - Vibe Archive{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -15,26 +15,26 @@
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'chats' %}">Чаты</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'chats' %}">Chats</a></li>
         <li class="breadcrumb-item"><a href="{% url 'chat_detail' tg_chat.pk %}">{{ tg_chat.display_name }}</a></li>
-        <li class="breadcrumb-item active">Медиа</li>
+        <li class="breadcrumb-item active">Media</li>
     </ol>
 </nav>
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Медиа — {{ tg_chat.display_name }}</h5>
-    <span class="text-muted small">{{ page_obj.paginator.count }} файлов</span>
+    <h5 class="mb-0">Media - {{ tg_chat.display_name }}</h5>
+    <span class="text-muted small">{{ page_obj.paginator.count }} files</span>
 </div>
 
 <div class="d-flex gap-2 mb-3">
-    <a href="?type=" class="btn btn-sm {% if not media_type %}btn-primary{% else %}btn-outline-secondary{% endif %}">Все</a>
-    <a href="?type=photo" class="btn btn-sm {% if media_type == 'photo' %}btn-primary{% else %}btn-outline-secondary{% endif %}">📷 Фото</a>
-    <a href="?type=video" class="btn btn-sm {% if media_type == 'video' %}btn-primary{% else %}btn-outline-secondary{% endif %}">🎥 Видео</a>
+    <a href="?type=" class="btn btn-sm {% if not media_type %}btn-primary{% else %}btn-outline-secondary{% endif %}">All</a>
+    <a href="?type=photo" class="btn btn-sm {% if media_type == 'photo' %}btn-primary{% else %}btn-outline-secondary{% endif %}">📷 Photo</a>
+    <a href="?type=video" class="btn btn-sm {% if media_type == 'video' %}btn-primary{% else %}btn-outline-secondary{% endif %}">🎥 Video</a>
     <a href="?type=gif" class="btn btn-sm {% if media_type == 'gif' %}btn-primary{% else %}btn-outline-secondary{% endif %}">🎞 GIF</a>
 </div>
 
 {% if page_obj.paginator.count == 0 %}
-    <div class="text-muted text-center py-5">Нет медиафайлов</div>
+    <div class="text-muted text-center py-5">No media files</div>
 {% else %}
 <div class="media-grid">
     {% for msg in page_obj %}
@@ -49,7 +49,7 @@
                 <video preload="none" muted>
                     <source src="{{ msg.media_url }}">
                 </video>
-                <span class="media-type badge bg-dark">🎥{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+                <span class="media-type badge bg-dark">🎥{% if msg.duration %} {{ msg.duration }}s{% endif %}</span>
             </a>
         {% elif msg.message_type == "gif" %}
             <a href="{{ msg.media_url }}" target="_blank" title="{{ msg.date|date:'d.m.Y H:i' }}">

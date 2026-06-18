@@ -15,13 +15,13 @@ class Migration(migrations.Migration):
             name='Bookmark',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('note', models.TextField(blank=True, null=True, verbose_name='Заметка')),
+                ('note', models.TextField(blank=True, null=True, verbose_name='Note')),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('message', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='bookmark', to='archive.message', verbose_name='Сообщение')),
+                ('message', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='bookmark', to='archive.message', verbose_name='Message')),
             ],
             options={
-                'verbose_name': 'Закладка',
-                'verbose_name_plural': 'Закладки',
+                'verbose_name': 'Bookmark',
+                'verbose_name_plural': 'Bookmarks',
                 'ordering': ['-created_at'],
             },
         ),

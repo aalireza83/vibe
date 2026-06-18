@@ -18,7 +18,7 @@
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'chats' %}">Чаты</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'chats' %}">Chats</a></li>
         <li class="breadcrumb-item active">{{ tg_chat.display_name }}</li>
     </ol>
 </nav>
@@ -27,36 +27,36 @@
     <h5 class="mb-0">{{ tg_chat.display_name }}</h5>
     <div class="d-flex align-items-center gap-3">
         <span id="poll-indicator" class="text-muted"></span>
-        <span class="text-muted small">{{ page_obj.paginator.count }} сообщений</span>
-        <a href="{% url 'chat_media' tg_chat.pk %}" class="btn btn-sm btn-outline-secondary">🖼 Медиа</a>
+        <span class="text-muted small">{{ page_obj.paginator.count }} messages</span>
+        <a href="{% url 'chat_media' tg_chat.pk %}" class="btn btn-sm btn-outline-secondary">🖼 Media</a>
         <a href="{% url 'export_chat' tg_chat.pk %}?format=json" class="btn btn-sm btn-outline-secondary">JSON</a>
         <a href="{% url 'export_chat' tg_chat.pk %}?format=csv" class="btn btn-sm btn-outline-secondary">CSV</a>
     </div>
 </div>
 
-{# Фильтры #}
+{# Filters #}
 <form method="get" class="mb-3 d-flex flex-wrap gap-2 align-items-center">
     <select name="type" class="form-select form-select-sm" style="width:auto">
-        <option value="">Все типы</option>
+        <option value="">All types</option>
         {% for val, label in message_types %}
             <option value="{{ val }}" {% if msg_type == val %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
     </select>
     <div class="form-check mb-0">
         <input class="form-check-input" type="checkbox" name="deleted" value="1" id="chk-deleted" {% if show_deleted %}checked{% endif %}>
-        <label class="form-check-label" for="chk-deleted">Удалённые</label>
+        <label class="form-check-label" for="chk-deleted">Deleted</label>
     </div>
     <div class="form-check mb-0">
         <input class="form-check-input" type="checkbox" name="edited" value="1" id="chk-edited" {% if show_edited %}checked{% endif %}>
-        <label class="form-check-label" for="chk-edited">Редактированные</label>
+        <label class="form-check-label" for="chk-edited">Edited</label>
     </div>
     <div class="form-check mb-0">
         <input class="form-check-input" type="checkbox" name="bookmarked" value="1" id="chk-bookmarked" {% if show_bookmarked %}checked{% endif %}>
-        <label class="form-check-label" for="chk-bookmarked">Закладки</label>
+        <label class="form-check-label" for="chk-bookmarked">Bookmarked</label>
     </div>
-    <button type="submit" class="btn btn-sm btn-primary">Применить</button>
+    <button type="submit" class="btn btn-sm btn-primary">Apply</button>
     {% if has_filters %}
-        <a href="{% url 'chat_detail' tg_chat.pk %}" class="btn btn-sm btn-outline-secondary">Сбросить</a>
+        <a href="{% url 'chat_detail' tg_chat.pk %}" class="btn btn-sm btn-outline-secondary">Reset</a>
     {% endif %}
 </form>
 
@@ -107,7 +107,7 @@
         .then(r => r.json())
         .then(data => {
             btn.classList.toggle('active', data.bookmarked);
-            btn.title = data.bookmarked ? 'Убрать закладку' : 'Добавить закладку';
+            btn.title = data.bookmarked ? 'Remove bookmark' : 'Add bookmark';
         });
     });
 </script>
@@ -129,7 +129,7 @@
                 container.insertAdjacentHTML('afterbegin', data.html);
                 renderMarkdown(container);
                 latestId = data.latest_id;
-                indicator.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+                indicator.textContent = 'updated ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
             }
         } catch (e) {}
     }

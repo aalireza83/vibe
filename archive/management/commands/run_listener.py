@@ -22,8 +22,8 @@ from telethon.tl.types import (
 
 from archive.models import AppSettings, ChatType, Message, MessageEdit, MessageType, TelegramChat, TelegramUser
 
-# Кеш количества участников: {chat_id: member_count}
-# Живёт пока запущен listener, избавляет от повторных запросов к Telegram
+# Member count cache: {chat_id: member_count}.
+# Lives while the listener runs and avoids repeated Telegram requests.
 _member_count_cache: dict[int, int] = {}
 
 logger = logging.getLogger(__name__)
@@ -41,8 +41,8 @@ def get_message_type(message) -> str:
         doc = media.document
         attrs = {type(a).__name__: a for a in doc.attributes}
 
-        # Стикер проверяем первым — анимированные стикеры (WEBM) имеют
-        # одновременно DocumentAttributeSticker и DocumentAttributeVideo
+        # Check stickers first: animated stickers (WEBM) have both
+        # DocumentAttributeSticker and DocumentAttributeVideo.
         if "DocumentAttributeSticker" in attrs:
             return MessageType.STICKER
         if "DocumentAttributeAnimated" in attrs:
@@ -104,22 +104,22 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
     chat_id = chat.id
 
     if isinstance(chat, Channel):
-        # megagroup=True — супергруппа, False — канал
+        # megagroup=True means supergroup; False means channel.
         if not getattr(chat, "megagroup", False):
-            logger.debug("Пропускаем канал: %s (id=%d)", chat.title, chat_id)
+            logger.debug("Skipping channel: %s (id=%d)", chat.title, chat_id)
             return None
-        # Супергруппа — обрабатываем как группу
+        # Treat supergroups as groups.
         chat_type = ChatType.GROUP
         title = chat.title
         username = getattr(chat, "username", None)
         member_count = getattr(chat, "participants_count", None)
-        logger.debug("Супергруппа: %s (id=%d), участников: %s", title, chat_id, member_count)
+        logger.debug("Supergroup: %s (id=%d), members: %s", title, chat_id, member_count)
     elif isinstance(chat, Chat):
         chat_type = ChatType.GROUP
         title = chat.title
         username = None
         member_count = getattr(chat, "participants_count", None)
-        logger.debug("Группа: %s (id=%d), участников: %s", title, chat_id, member_count)
+        logger.debug("Group: %s (id=%d), members: %s", title, chat_id, member_count)
     elif isinstance(chat, User):
         if chat.bot:
             chat_type = ChatType.BOT
@@ -128,20 +128,20 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
         title = " ".join(filter(None, [chat.first_name, chat.last_name]))
         username = chat.username
         member_count = None
-        logger.debug("Личка: %s (id=%d)", title, chat_id)
+        logger.debug("Private chat: %s (id=%d)", title, chat_id)
     else:
-        logger.debug("Неизвестный тип чата: %s (id=%d)", type(chat).__name__, chat_id)
+        logger.debug("Unknown chat type: %s (id=%d)", type(chat).__name__, chat_id)
         return None
 
-    # Проверяем лимит участников для групп
+    # Check group member limit.
     if chat_type == ChatType.GROUP:
         app_settings = await sync_to_async(AppSettings.get)()
 
-        # 1. Проверяем in-memory кеш
+        # 1. Check the in-memory cache.
         if member_count is None:
             member_count = _member_count_cache.get(chat_id)
 
-        # 2. Если нет в кеше — запрашиваем у Telegram и кешируем
+        # 2. If missing from the cache, request it from Telegram and cache it.
         if member_count is None:
             try:
                 if isinstance(chat, Channel):
@@ -152,12 +152,12 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
                     member_count = full.full_chat.participants_count
                 if member_count is not None:
                     _member_count_cache[chat_id] = member_count
-                    logger.info("[TG] '%s' — %d участников", title, member_count)
+                    logger.info("[TG] '%s' - %d members", title, member_count)
             except Exception as exc:
-                logger.warning("Не удалось получить участников для '%s': %s", title, exc)
+                logger.warning("Could not get members for '%s': %s", title, exc)
 
         if member_count is not None and member_count > app_settings.max_group_members:
-            # Сохраняем в БД даже для игнорируемых групп — чтобы кеш пережил рестарт
+            # Save ignored groups too so the cache survives restarts.
             @sync_to_async
             def save_ignored_chat():
                 TelegramChat.objects.update_or_create(
@@ -209,7 +209,7 @@ def extract_message_fields(message) -> dict:
         "contact_user_id": None,
     }
 
-    # Подпись/текст сохраняем сразу для всех типов (caption у фото, видео и т.д.)
+    # Save caption/text immediately for every type (photo/video captions, etc.).
     if message.text:
         fields["text"] = message.text
 
@@ -269,10 +269,10 @@ def extract_message_fields(message) -> dict:
 
 
 class Command(BaseCommand):
-    help = "Запускает Telegram listener для архивации сообщений"
+    help = "Runs the Telegram listener that archives messages"
 
     def handle(self, *args, **options):
-        self.stdout.write(self.style.SUCCESS("Запускаем Telegram listener..."))
+        self.stdout.write(self.style.SUCCESS("Starting Telegram listener..."))
         try:
             asyncio.run(self._run())
         except KeyboardInterrupt:
@@ -287,12 +287,12 @@ class Command(BaseCommand):
 
         await client.start(phone=settings.TG_PHONE)
         me = await client.get_me()
-        logger.info("Авторизован как: %s (id=%d)", me.first_name, me.id)
-        self.stdout.write(self.style.SUCCESS(f"Авторизован как: {me.first_name} (id={me.id})"))
+        logger.info("Logged in as: %s (id=%d)", me.first_name, me.id)
+        self.stdout.write(self.style.SUCCESS(f"Logged in as: {me.first_name} (id={me.id})"))
 
         from asgiref.sync import sync_to_async
 
-        # Загружаем member_count из БД в кеш — чтобы не дёргать Telegram после рестарта
+        # Load member_count from the database so Telegram is not queried after restarts.
         @sync_to_async
         def load_member_count_cache():
             count = 0
@@ -305,9 +305,9 @@ class Command(BaseCommand):
 
         cached = await load_member_count_cache()
         if cached:
-            self.stdout.write(f"Загружено из БД: {cached} чатов с кол-вом участников")
+            self.stdout.write(f"Loaded from database: {cached} chats with member counts")
 
-        # Сохраняем себя как TelegramUser
+        # Save the current account as a TelegramUser.
 
         @sync_to_async
         def save_me():
@@ -328,37 +328,37 @@ class Command(BaseCommand):
             try:
                 await handle_new_message(event, client)
             except Exception as exc:
-                logger.exception("Ошибка при обработке сообщения: %s", exc)
+                logger.exception("Error while handling message: %s", exc)
 
         @client.on(events.MessageEdited)
         async def on_message_edited(event):
             try:
                 await handle_message_edited(event)
             except Exception as exc:
-                logger.exception("Ошибка при обработке редактирования: %s", exc)
+                logger.exception("Error while handling edit: %s", exc)
 
         @client.on(events.MessageDeleted)
         async def on_message_deleted(event):
             try:
                 await handle_message_deleted(event)
             except Exception as exc:
-                logger.exception("Ошибка при обработке удаления: %s", exc)
+                logger.exception("Error while handling deletion: %s", exc)
 
         @client.on(events.Raw(UpdateTranscribedAudio))
         async def on_transcription_ready(update):
             try:
                 await handle_transcription_update(update)
             except Exception as exc:
-                logger.exception("Ошибка при обработке транскрипции: %s", exc)
+                logger.exception("Error while handling transcription: %s", exc)
 
-        self.stdout.write("Слушаем сообщения... (Ctrl+C для остановки)")
+        self.stdout.write("Listening for messages... (Ctrl+C to stop)")
         try:
             await client.run_until_disconnected()
         except KeyboardInterrupt:
             pass
         finally:
             await client.disconnect()
-            self.stdout.write(self.style.WARNING("\nListener остановлен."))
+            self.stdout.write(self.style.WARNING("\nListener stopped."))
 
 
 async def handle_new_message(event, client):
@@ -366,19 +366,19 @@ async def handle_new_message(event, client):
 
     message = event.message
 
-    # Получаем/создаём чат (возвращает None если канал или группа > лимита)
+    # Get or create the chat. Returns None for channels or groups above the limit.
     tg_chat = await get_or_create_chat(event, client)
     if tg_chat is None:
         return
 
-    # Получаем/создаём отправителя
+    # Get or create the sender.
     sender = await event.get_sender()
     tg_user = await get_or_create_user(sender)
 
-    # Извлекаем поля в зависимости от типа
+    # Extract fields based on message type.
     fields = extract_message_fields(message)
 
-    # Данные о пересылке
+    # Forward metadata.
     forward_from_id = None
     forward_from_name = None
     if message.forward:
@@ -411,7 +411,7 @@ async def handle_new_message(event, client):
 
     await save_message()
 
-    # Медиа скачиваем в фоне, не блокируя handler
+    # Download media in the background without blocking the handler.
     if message.media and fields["message_type"] not in (
         MessageType.POLL,
         MessageType.LOCATION,
@@ -422,14 +422,14 @@ async def handle_new_message(event, client):
             download_media_task(client, message, tg_chat, fields["message_type"])
         )
 
-    # Транскрипция для голосовых и кружков
+    # Transcription for voice messages and video notes.
     if fields["message_type"] in (MessageType.VOICE, MessageType.VIDEO_NOTE):
         asyncio.create_task(
             transcribe_message(client, message, tg_chat)
         )
 
     logger.debug(
-        "Сохранено [%s] %s #%d от %s",
+        "Saved [%s] %s #%d from %s",
         tg_chat,
         fields["message_type"],
         message.id,
@@ -437,7 +437,7 @@ async def handle_new_message(event, client):
     )
 
 
-# Семафор: не более 3 одновременных загрузок
+# Semaphore: no more than 3 concurrent downloads.
 _download_semaphore = asyncio.Semaphore(3)
 
 
@@ -446,24 +446,24 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
 
     app_settings = await sync_to_async(AppSettings.get)()
 
-    # Проверяем нужно ли скачивать этот тип
+    # Check whether this type should be downloaded.
     if msg_type == MessageType.AUDIO and not app_settings.download_audio:
         return
     if msg_type == MessageType.DOCUMENT and not app_settings.download_documents:
         return
 
-    # Проверяем размер файла
+    # Check file size.
     if hasattr(message.media, "document"):
         file_size_mb = (message.media.document.size or 0) / (1024 * 1024)
         if file_size_mb > app_settings.max_file_size_mb:
             logger.info(
-                "Пропускаем файл %.1f МБ > лимита %d МБ",
+                "Skipping file %.1f MB > limit %d MB",
                 file_size_mb,
                 app_settings.max_file_size_mb,
             )
             return
 
-    # Определяем папку
+    # Determine the directory.
     type_dir = {
         MessageType.PHOTO: "photo",
         MessageType.VIDEO: "video",
@@ -482,8 +482,8 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
     save_dir = Path(django_settings.MEDIA_ROOT) / str(tg_chat.chat_id) / type_dir
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    # Скачиваем оригинальный файл для всех типов
-    # Фото показывается уменьшенным через CSS, по клику открывается в полный размер
+    # Download the original file for every type.
+    # Photos are displayed smaller via CSS and open full-size on click.
     thumb = None
 
     async with _download_semaphore:
@@ -502,15 +502,15 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
                     ).update(media_path=path)
 
                 await update_path()
-                logger.debug("Скачан файл: %s", path)
+                logger.debug("Downloaded file: %s", path)
 
         except FloodWaitError as exc:
-            logger.warning("FloodWait %d сек, ждём...", exc.seconds)
+            logger.warning("FloodWait %d seconds, waiting...", exc.seconds)
             await asyncio.sleep(exc.seconds)
-            # Повторная попытка
+            # Retry.
             await download_media_task(client, message, tg_chat, msg_type)
         except Exception as exc:
-            logger.exception("Ошибка загрузки медиа: %s", exc)
+            logger.exception("Media download error: %s", exc)
 
 
 async def transcribe_message(client, message, tg_chat: TelegramChat):
@@ -523,7 +523,7 @@ async def transcribe_message(client, message, tg_chat: TelegramChat):
         ))
 
         if not result.pending:
-            # Текст уже готов
+            # Text is ready immediately.
             @sync_to_async
             def save_transcription():
                 Message.objects.filter(
@@ -535,9 +535,9 @@ async def transcribe_message(client, message, tg_chat: TelegramChat):
                 )
 
             await save_transcription()
-            logger.debug("Транскрипция готова для сообщения #%d", message.id)
+            logger.debug("Transcription is ready for message #%d", message.id)
         else:
-            # Помечаем как pending, результат придёт через UpdateTranscribedAudio
+            # Mark as pending; the result will arrive through UpdateTranscribedAudio.
             @sync_to_async
             def mark_pending():
                 Message.objects.filter(
@@ -546,17 +546,17 @@ async def transcribe_message(client, message, tg_chat: TelegramChat):
                 ).update(transcription_pending=True)
 
             await mark_pending()
-            logger.debug("Транскрипция ожидается для сообщения #%d", message.id)
+            logger.debug("Transcription is pending for message #%d", message.id)
 
     except Exception as exc:
-        logger.warning("Не удалось запустить транскрипцию для #%d: %s", message.id, exc)
+        logger.warning("Could not start transcription for #%d: %s", message.id, exc)
 
 
 async def handle_transcription_update(update: UpdateTranscribedAudio):
     from asgiref.sync import sync_to_async
 
     if update.pending:
-        return  # ещё не готово
+        return  # Not ready yet.
 
     @sync_to_async
     def save():
@@ -573,7 +573,7 @@ async def handle_transcription_update(update: UpdateTranscribedAudio):
         )
 
     await save()
-    logger.debug("Транскрипция обновлена для сообщения #%d", update.msg_id)
+    logger.debug("Transcription updated for message #%d", update.msg_id)
 
 
 async def handle_message_edited(event):
@@ -597,11 +597,11 @@ async def handle_message_edited(event):
         except Message.DoesNotExist:
             return
 
-        # Реакции тоже вызывают MessageEdited — игнорируем если текст не изменился
+        # Reactions also trigger MessageEdited; ignore them if text did not change.
         if (msg.text or "") == new_text:
             return
 
-        # Сохраняем предыдущую версию в историю
+        # Save the previous version to history.
         if msg.text:
             MessageEdit.objects.create(
                 message=msg,
@@ -614,7 +614,7 @@ async def handle_message_edited(event):
         msg.save(update_fields=["text", "edited_at"])
 
     await update_message()
-    logger.debug("Отредактировано сообщение #%d в чате %d", message.id, chat.id)
+    logger.debug("Edited message #%d in chat %d", message.id, chat.id)
 
 
 async def handle_message_deleted(event):
@@ -639,7 +639,7 @@ async def handle_message_deleted(event):
 
     count = await mark_deleted()
     logger.debug(
-        "Помечено удалёнными %d сообщений (ids: %s)",
+        "Marked %d messages as deleted (ids: %s)",
         count,
         deleted_ids[:5],
     )

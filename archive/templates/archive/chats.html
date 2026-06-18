@@ -1,14 +1,14 @@
 {% extends "archive/base.html" %}
-{% block title %}Чаты — Vibe Archive{% endblock %}
+{% block title %}Chats - Vibe Archive{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h5 class="mb-0">Чаты (<span id="chats-count">{{ chat_list.count }}</span>)</h5>
+    <h5 class="mb-0">Chats (<span id="chats-count">{{ chat_list.count }}</span>)</h5>
     <span id="chats-indicator" style="font-size:0.75em" class="text-muted"></span>
 </div>
 
 {% if not chat_list %}
-    <div class="text-muted text-center py-5">Сообщений пока нет. Запустите <code>run_listener</code>.</div>
+    <div class="text-muted text-center py-5">No messages yet. Run <code>run_listener</code>.</div>
 {% else %}
 <div id="chats-list" class="list-group shadow-sm">
     {% include "archive/_chats_list.html" %}
@@ -28,7 +28,7 @@
             const data = await resp.json();
             document.getElementById('chats-list').innerHTML = data.html;
             document.getElementById('chats-count').textContent = data.count;
-            indicator.textContent = 'обновлено ' + new Date().toLocaleTimeString('ru', {hour:'2-digit', minute:'2-digit'});
+            indicator.textContent = 'updated ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
         } catch (e) {}
     }
 

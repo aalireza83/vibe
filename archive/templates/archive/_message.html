@@ -2,23 +2,23 @@
 <div class="msg-bubble {% if msg.is_deleted %}deleted{% endif %}" id="msg-{{ msg.message_id }}">
     <div class="d-flex justify-content-between align-items-start">
         <div class="msg-meta">
-            <strong>{{ msg.sender.display_name|default:"Неизвестно" }}</strong>
+            <strong>{{ msg.sender.display_name|default:"Unknown" }}</strong>
             {% if msg.is_forwarded %}
-                <span class="text-secondary"> › переслано{% if msg.forward_from_name %} від {{ msg.forward_from_name }}{% endif %}</span>
+                <span class="text-secondary"> › forwarded{% if msg.forward_from_name %} from {{ msg.forward_from_name }}{% endif %}</span>
             {% endif %}
         </div>
         <div class="msg-meta d-flex align-items-center gap-2">
             {% if msg.is_deleted %}
-                <span class="text-danger" title="Удалено {% if msg.deleted_at %}{{ msg.deleted_at|date:"d.m.Y H:i" }}{% endif %}">🗑</span>
+                <span class="text-danger" title="Deleted {% if msg.deleted_at %}{{ msg.deleted_at|date:"d.m.Y H:i" }}{% endif %}">🗑</span>
             {% endif %}
             {% if msg.edited_at %}
-                <span class="text-warning" title="Отредактировано {{ msg.edited_at|date:"d.m.Y H:i" }}">✏️</span>
+                <span class="text-warning" title="Edited {{ msg.edited_at|date:"d.m.Y H:i" }}">✏️</span>
             {% endif %}
             <span>{{ msg.date|date:"d.m.Y H:i" }}</span>
-            <button class="copy-btn" data-text="{{ msg.text|default:'' }}" title="Скопировать">⎘</button>
+            <button class="copy-btn" data-text="{{ msg.text|default:'' }}" title="Copy">⎘</button>
             <button class="bookmark-btn {% if msg.bookmark %}active{% endif %}"
                     data-pk="{{ msg.pk }}"
-                    title="{% if msg.bookmark %}Убрать закладку{% else %}Добавить закладку{% endif %}">🔖</button>
+                    title="{% if msg.bookmark %}Remove bookmark{% else %}Add bookmark{% endif %}">🔖</button>
         </div>
     </div>
 
@@ -29,7 +29,7 @@
                 <span class="text-muted small fw-semibold">{{ replied.sender.display_name|default:"?" }}</span>
                 <span class="text-muted small ms-1">{{ replied.text|default:replied.message_type|truncatechars:80 }}</span>
             {% else %}
-                <span class="text-muted small fst-italic">↩ ответ на сообщение #{{ msg.reply_to_message_id }}</span>
+                <span class="text-muted small fst-italic">↩ reply to message #{{ msg.reply_to_message_id }}</span>
             {% endif %}
         </div>
         {% endwith %}
@@ -43,11 +43,11 @@
         {% elif msg.message_type == "photo" %}
             {% if msg.media_url %}
                 <a href="{{ msg.media_url }}" target="_blank">
-                    <img src="{{ msg.media_url }}" class="msg-media-img" alt="Фото" style="cursor:zoom-in"
-                         onerror="this.closest('a').replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'📷 Фото (файл недоступен)'}))">
+                    <img src="{{ msg.media_url }}" class="msg-media-img" alt="Photo" style="cursor:zoom-in"
+                         onerror="this.closest('a').replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'📷 Photo (file unavailable)'}))">
                 </a>
             {% else %}
-                <span class="badge bg-light text-dark">📷 Фото — ещё скачивается...</span>
+                <span class="badge bg-light text-dark">📷 Photo - still downloading...</span>
             {% endif %}
             {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
@@ -58,21 +58,21 @@
                         <source src="{{ msg.media_url }}" type="video/webm">
                     </video>
                 {% else %}
-                    <img src="{{ msg.media_url }}" class="msg-sticker" alt="{{ msg.sticker_emoji|default:'стикер' }}"
+                    <img src="{{ msg.media_url }}" class="msg-sticker" alt="{{ msg.sticker_emoji|default:'sticker' }}"
                          onerror="this.style.display='none'">
                 {% endif %}
             {% else %}
-                <span class="badge bg-light text-dark">🎭 {{ msg.sticker_emoji|default:"Стикер" }}</span>
+                <span class="badge bg-light text-dark">🎭 {{ msg.sticker_emoji|default:"Sticker" }}</span>
             {% endif %}
 
         {% elif msg.message_type == "gif" %}
             {% if msg.media_url %}
                 <video class="msg-media-img" autoplay loop muted playsinline
-                       onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎞 GIF (файл недоступен)'}))">
+                       onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'badge bg-light text-dark',textContent:'🎞 GIF (file unavailable)'}))">
                     <source src="{{ msg.media_url }}">
                 </video>
             {% else %}
-                <span class="badge bg-light text-dark">🎞 GIF — ещё скачивается...</span>
+                <span class="badge bg-light text-dark">🎞 GIF - still downloading...</span>
             {% endif %}
             {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
@@ -80,26 +80,26 @@
             {% if msg.media_url %}
                 <video class="msg-media-img" controls preload="metadata">
                     <source src="{{ msg.media_url }}">
-                    Видео недоступно
+                    Video unavailable
                 </video>
             {% else %}
-                <span class="badge bg-light text-dark">🎥 Видео{% if msg.duration %} {{ msg.duration }}с{% endif %} — превью скачивается...</span>
+                <span class="badge bg-light text-dark">🎥 Video{% if msg.duration %} {{ msg.duration }}s{% endif %} - preview downloading...</span>
             {% endif %}
             {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
         {% elif msg.message_type == "voice" %}
             {% if msg.media_url %}
                 <div class="d-flex align-items-center gap-2 mt-1">
-                    <span class="text-muted small">🎤{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+                    <span class="text-muted small">🎤{% if msg.duration %} {{ msg.duration }}s{% endif %}</span>
                     <audio controls preload="none" style="height:32px;flex:1">
                         <source src="{{ msg.media_url }}">
                     </audio>
                 </div>
             {% else %}
-                <span class="badge bg-light text-dark">🎤 Голосовое{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+                <span class="badge bg-light text-dark">🎤 Voice{% if msg.duration %} {{ msg.duration }}s{% endif %}</span>
             {% endif %}
             {% if msg.transcription_pending %}
-                <p class="mb-0 mt-1 text-muted fst-italic small">Транскрипция обрабатывается...</p>
+                <p class="mb-0 mt-1 text-muted fst-italic small">Transcription is being processed...</p>
             {% elif msg.transcription %}
                 <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
             {% endif %}
@@ -110,10 +110,10 @@
                     <source src="{{ msg.media_url }}">
                 </video>
             {% else %}
-                <span class="badge bg-light text-dark">⭕ Кружок{% if msg.duration %} {{ msg.duration }}с{% endif %}</span>
+                <span class="badge bg-light text-dark">⭕ Video note{% if msg.duration %} {{ msg.duration }}s{% endif %}</span>
             {% endif %}
             {% if msg.transcription_pending %}
-                <p class="mb-0 mt-1 text-muted fst-italic small">Транскрипция обрабатывается...</p>
+                <p class="mb-0 mt-1 text-muted fst-italic small">Transcription is being processed...</p>
             {% elif msg.transcription %}
                 <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
             {% endif %}
@@ -122,8 +122,8 @@
             {% if msg.media_url %}
                 <div class="mt-1">
                     <p class="mb-1 small fw-semibold">
-                        🎵 {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} — {{ msg.audio_artist }}{% endif %}{% else %}Аудио{% endif %}
-                        {% if msg.duration %}<span class="text-muted fw-normal">{{ msg.duration }}с</span>{% endif %}
+                        🎵 {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} - {{ msg.audio_artist }}{% endif %}{% else %}Audio{% endif %}
+                        {% if msg.duration %}<span class="text-muted fw-normal">{{ msg.duration }}s</span>{% endif %}
                     </p>
                     <audio controls preload="none" style="width:100%;max-width:360px">
                         <source src="{{ msg.media_url }}">
@@ -131,24 +131,24 @@
                 </div>
             {% else %}
                 <span class="badge bg-light text-dark">🎵
-                    {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} — {{ msg.audio_artist }}{% endif %}{% else %}Аудио{% endif %}
-                    {% if msg.duration %} {{ msg.duration }}с{% endif %}
+                    {% if msg.audio_title %}{{ msg.audio_title }}{% if msg.audio_artist %} - {{ msg.audio_artist }}{% endif %}{% else %}Audio{% endif %}
+                    {% if msg.duration %} {{ msg.duration }}s{% endif %}
                 </span>
             {% endif %}
 
         {% elif msg.message_type == "document" %}
             {% if msg.media_url %}
                 <a href="{{ msg.media_url }}" download class="badge bg-light text-dark text-decoration-none">
-                    📄 {{ msg.file_name|default:"Документ" }}
+                    📄 {{ msg.file_name|default:"Document" }}
                     {% if msg.file_size %}<span class="text-muted"> · {{ msg.file_size|filesizeformat }}</span>{% endif %}
                 </a>
             {% else %}
-                <span class="badge bg-light text-dark">📄 {{ msg.file_name|default:"Документ" }}{% if msg.file_size %} · {{ msg.file_size|filesizeformat }}{% endif %}</span>
+                <span class="badge bg-light text-dark">📄 {{ msg.file_name|default:"Document" }}{% if msg.file_size %} · {{ msg.file_size|filesizeformat }}{% endif %}</span>
             {% endif %}
             {% if msg.text %}<div class="mb-0 mt-1 msg-text" style="white-space:pre-wrap">{{ msg.text }}</div>{% endif %}
 
         {% elif msg.message_type == "poll" %}
-            <span class="badge bg-light text-dark">📊 Опрос</span>
+            <span class="badge bg-light text-dark">📊 Poll</span>
             <p class="mb-1 mt-1 fw-semibold">{{ msg.poll_question }}</p>
             {% if msg.poll_options %}
                 <ul class="mb-0 small">
@@ -157,11 +157,11 @@
             {% endif %}
 
         {% elif msg.message_type == "location" %}
-            <span class="badge bg-light text-dark">📍 Геолокация</span>
+            <span class="badge bg-light text-dark">📍 Location</span>
             <p class="mb-0 mt-1 small">{{ msg.latitude }}, {{ msg.longitude }}</p>
 
         {% elif msg.message_type == "contact" %}
-            <span class="badge bg-light text-dark">👤 Контакт</span>
+            <span class="badge bg-light text-dark">👤 Contact</span>
             <p class="mb-0 mt-1 small">{{ msg.contact_name }} {% if msg.contact_phone %}· {{ msg.contact_phone }}{% endif %}</p>
 
         {% else %}
@@ -173,7 +173,7 @@
     {% if msg.edits.all %}
     <div class="edit-history mt-2">
         <details>
-            <summary class="text-muted" style="cursor:pointer">История правок ({{ msg.edits.count }})</summary>
+            <summary class="text-muted" style="cursor:pointer">Edit history ({{ msg.edits.count }})</summary>
             {% for edit in msg.edits.all %}
             <div class="mt-1 pt-1 border-top">
                 <span class="text-muted" style="font-size:0.85em">{{ edit.edited_at|date:"d.m.Y H:i" }}</span>

@@ -3,6 +3,7 @@ import json
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchRank
+from django.conf import settings
 from django.core.paginator import Paginator
 from django.db.models import Count, OuterRef, Subquery
 from django.http import HttpResponse, JsonResponse
@@ -14,7 +15,7 @@ from .models import Bookmark, Message, MessageType, TelegramChat
 
 
 def _page_range(current, total, delta=2):
-    """Возвращает список номеров страниц с None в местах пропусков."""
+    """Return page numbers with None where gaps should appear."""
     pages = set()
     pages.update(range(1, min(3, total + 1)))
     pages.update(range(max(1, total - 1), total + 1))
@@ -131,7 +132,7 @@ def search(request):
     chat_filter = request.GET.get("chat", "")
 
     if query:
-        search_query = SearchQuery(query, config="russian")
+        search_query = SearchQuery(query, config=settings.SEARCH_CONFIG)
         messages_qs = (
             Message.objects.filter(search_vector=search_query)
             .select_related("chat", "sender")
