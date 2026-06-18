@@ -46,6 +46,12 @@ class Command(BaseCommand):
             settings.TG_SESSION,
             settings.TG_API_ID,
             settings.TG_API_HASH,
+            device_model=settings.DEVICE_MODEL,
+            system_version=settings.SYSTEM_VERSION,
+            app_version=settings.APP_VERSION,
+            lang_code=settings.LANG_CODE,
+            system_lang_code=settings.SYSTEM_LANG_CODE,
+            lang_pack=settings.LANG_PACK
         )
 
         await client.start(phone=settings.TG_PHONE)
