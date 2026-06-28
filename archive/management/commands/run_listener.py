@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
+from telethon.tl import types
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest, TranscribeAudioRequest
 from telethon.tl.types import (
@@ -287,9 +288,19 @@ class Command(BaseCommand):
             system_version=settings.SYSTEM_VERSION,
             app_version=settings.APP_VERSION,
             lang_code=settings.LANG_CODE,
-            system_lang_code=settings.SYSTEM_LANG_CODE,
-            lang_pack=settings.LANG_PACK
+            system_lang_code=settings.SYSTEM_LANG_CODE
         )
+
+        client._init_request.lang_pack = "tdesktop" or ""
+
+        client._init_request.params = types.JsonObject([
+            types.JsonObjectValue(
+                key="tz_offset",
+                value=types.JsonNumber(
+                    value=12600
+                )
+            )
+        ])
 
         await client.start(phone=settings.TG_PHONE)
         me = await client.get_me()
