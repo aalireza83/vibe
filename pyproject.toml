@@ -12,4 +12,5 @@ dependencies = [
     "aiofiles>=23.0",
     "pillow>=11.0",
     "whitenoise>=6.0",
+    "gunicorn>=26.0.0",
 ]
