@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from telethon import TelegramClient
 from telethon.errors import FloodWaitError
+from telethon.tl import types
 from telethon.tl.functions.channels import GetFullChannelRequest
 from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.types import Channel, Chat, User
@@ -15,7 +16,7 @@ from archive.management.commands.run_listener import (
     extract_message_fields,
     get_or_create_user,
 )
-from archive.models import AppSettings, ChatType, Message, TelegramChat, TelegramUser
+from archive.models import AppSettings, ChatType, Message, TelegramChat
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,19 @@ class Command(BaseCommand):
             system_version=settings.SYSTEM_VERSION,
             app_version=settings.APP_VERSION,
             lang_code=settings.LANG_CODE,
-            system_lang_code=settings.SYSTEM_LANG_CODE,
-            lang_pack=settings.LANG_PACK
+            system_lang_code=settings.SYSTEM_LANG_CODE
         )
+
+        client._init_request.lang_pack = "tdesktop" or ""
+
+        client._init_request.params = types.JsonObject([
+            types.JsonObjectValue(
+                key="tz_offset",
+                value=types.JsonNumber(
+                    value=12600
+                )
+            )
+        ])
 
         await client.start(phone=settings.TG_PHONE)
         self.stdout.write(self.style.SUCCESS(f"Synchronizing the last {days} days..."))
