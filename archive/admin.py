@@ -85,8 +85,9 @@ class TelegramUserAdmin(admin.ModelAdmin):
 
 @admin.register(TelegramChat)
 class TelegramChatAdmin(admin.ModelAdmin):
-    list_display = ("chat_id", "title", "username", "chat_type", "member_count", "updated_at")
-    list_filter = ("chat_type",)
+    list_display = ("chat_id", "title", "username", "chat_type", "member_count", "is_hidden", "updated_at")
+    list_editable = ("is_hidden",)
+    list_filter = ("chat_type", "is_hidden")
     search_fields = ("chat_id", "title", "username")
     readonly_fields = ("chat_id", "updated_at")
 

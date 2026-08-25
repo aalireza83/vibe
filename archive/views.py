@@ -58,7 +58,7 @@ def chats(request):
     )
 
     chat_list = (
-        TelegramChat.objects.annotate(
+        TelegramChat.objects.filter(is_hidden=False).annotate(
             message_count=Count("messages"),
             last_date=Subquery(latest_msg_date),
             last_text=Subquery(latest_msg_text),
@@ -73,7 +73,7 @@ def chats(request):
 
 @login_required
 def chat_detail(request, chat_id):
-    tg_chat = get_object_or_404(TelegramChat, pk=chat_id)
+    tg_chat = get_object_or_404(TelegramChat, pk=chat_id, is_hidden=False)
 
     messages_qs = (
         tg_chat.messages.select_related("sender", "bookmark")
@@ -143,7 +143,7 @@ def search(request):
     if query:
         search_query = SearchQuery(query, config=settings.SEARCH_CONFIG)
         messages_qs = (
-            Message.objects.filter(search_vector=search_query)
+            Message.objects.filter(search_vector=search_query, chat__is_hidden=False)
             .select_related("chat", "sender")
             .annotate(rank=SearchRank("search_vector", search_query))
             .order_by("-rank", "-date")
@@ -155,7 +155,7 @@ def search(request):
         paginator = Paginator(messages_qs, 30)
         page_obj = paginator.get_page(request.GET.get("page", 1))
 
-    all_chats = TelegramChat.objects.order_by("title")
+    all_chats = TelegramChat.objects.filter(is_hidden=False).order_by("title")
 
     return render(request, "archive/search.html", {
         "query": query,
@@ -168,7 +168,8 @@ def search(request):
 @login_required
 def bookmarks(request):
     bookmark_list = (
-        Bookmark.objects.select_related("message__chat", "message__sender")
+        Bookmark.objects.filter(message__chat__is_hidden=False)
+        .select_related("message__chat", "message__sender")
         .prefetch_related("message__edits")
         .order_by("-created_at")
     )
@@ -208,13 +209,13 @@ def message_changes(request):
 
     if display == "chat":
         changed_messages = (
-            Message.objects.filter(message_filter_q)
+            Message.objects.filter(message_filter_q, chat__is_hidden=False)
             .select_related("sender", "bookmark")
             .prefetch_related("edits")
             .distinct()
             .order_by("-date")
         )
-        affected_chats = TelegramChat.objects.filter(affected_messages_q)
+        affected_chats = TelegramChat.objects.filter(affected_messages_q, is_hidden=False)
         if hide_bots:
             affected_chats = affected_chats.exclude(chat_type=ChatType.BOT)
         if hide_self and self_user_ids:
@@ -237,7 +238,11 @@ def message_changes(request):
         events = []
         if event_type in ("all", "deleted"):
             deleted_messages = (
-                Message.objects.filter(is_deleted=True, deleted_at__isnull=False)
+                Message.objects.filter(
+                    is_deleted=True,
+                    deleted_at__isnull=False,
+                    chat__is_hidden=False,
+                )
                 .select_related("chat", "sender", "bookmark")
                 .prefetch_related("edits")
             )
@@ -253,7 +258,7 @@ def message_changes(request):
 
         if event_type in ("all", "edited"):
             edits = (
-                MessageEdit.objects.select_related(
+                MessageEdit.objects.filter(message__chat__is_hidden=False).select_related(
                     "message__chat", "message__sender", "message__bookmark"
                 )
                 .prefetch_related("message__edits")
@@ -293,7 +298,7 @@ def message_changes(request):
 
 @login_required
 def export_chat(request, chat_id):
-    tg_chat = get_object_or_404(TelegramChat, pk=chat_id)
+    tg_chat = get_object_or_404(TelegramChat, pk=chat_id, is_hidden=False)
     fmt = request.GET.get("format", "json")
 
     messages = list(
@@ -355,7 +360,7 @@ def export_chat(request, chat_id):
 @login_required
 @require_POST
 def api_toggle_bookmark(request, message_pk):
-    msg = get_object_or_404(Message, pk=message_pk)
+    msg = get_object_or_404(Message, pk=message_pk, chat__is_hidden=False)
     bookmark, created = Bookmark.objects.get_or_create(message=msg)
     if not created:
         bookmark.delete()
@@ -365,7 +370,7 @@ def api_toggle_bookmark(request, message_pk):
 
 @login_required
 def chat_media(request, chat_id):
-    tg_chat = get_object_or_404(TelegramChat, pk=chat_id)
+    tg_chat = get_object_or_404(TelegramChat, pk=chat_id, is_hidden=False)
     media_type = request.GET.get("type", "")
 
     qs = (
@@ -389,7 +394,7 @@ def chat_media(request, chat_id):
 
 @login_required
 def api_poll_chat(request, chat_id):
-    tg_chat = get_object_or_404(TelegramChat, pk=chat_id)
+    tg_chat = get_object_or_404(TelegramChat, pk=chat_id, is_hidden=False)
     after_id = request.GET.get("after", 0)
 
     new_messages = (
@@ -432,7 +437,7 @@ def api_chats_list(request):
     )
 
     chat_list = (
-        TelegramChat.objects.annotate(
+        TelegramChat.objects.filter(is_hidden=False).annotate(
             message_count=Count("messages"),
             last_date=Subquery(latest_msg_date),
             last_text=Subquery(latest_msg_text),

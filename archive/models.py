@@ -81,6 +81,11 @@ class TelegramChat(models.Model):
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name="Username")
     chat_type = models.CharField(max_length=20, choices=ChatType.choices, verbose_name="Type")
     member_count = models.IntegerField(blank=True, null=True, verbose_name="Members")
+    is_hidden = models.BooleanField(
+        default=False,
+        verbose_name="Hidden",
+        help_text="Keep this chat in the database but hide it from the web interface",
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated")
 
     class Meta:
