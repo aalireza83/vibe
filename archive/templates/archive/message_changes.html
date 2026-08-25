@@ -20,7 +20,10 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h5 class="mb-0">Deleted &amp; edited messages</h5>
-    <span class="text-muted small">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
+    <span class="text-muted small">
+        {{ page_obj.paginator.count }}
+        {% if display == "chat" %}chat{{ page_obj.paginator.count|pluralize }}{% else %}item{{ page_obj.paginator.count|pluralize }}{% endif %}
+    </span>
 </div>
 
 <form method="get" class="card card-body mb-4">
@@ -40,30 +43,34 @@
                 <option value="edited" {% if event_type == "edited" %}selected{% endif %}>Edited only</option>
             </select>
         </div>
-        <div id="chat-filter" {% if display != "chat" %}class="d-none"{% endif %}>
-            <label class="form-label small" for="chat-select">Chat</label>
-            <select class="form-select form-select-sm" name="chat" id="chat-select">
-                <option value="">Select a chat…</option>
-                {% for chat in affected_chats %}
-                    <option value="{{ chat.pk }}" {% if chat.pk|stringformat:"s" == chat_id %}selected{% endif %}>{{ chat.display_name }}</option>
-                {% endfor %}
-            </select>
+        <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" name="hide_bots" value="1" id="hide-bots" {% if hide_bots %}checked{% endif %}>
+            <label class="form-check-label" for="hide-bots">Hide bot chats</label>
+        </div>
+        <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" name="hide_self" value="1" id="hide-self" {% if hide_self %}checked{% endif %}>
+            <label class="form-check-label" for="hide-self">Hide Saved Messages</label>
         </div>
         <button class="btn btn-sm btn-primary" type="submit">Show</button>
     </div>
 </form>
 
 {% if display == "chat" %}
-    {% if not selected_chat %}
-        <div class="text-muted text-center py-5">Select a chat to display its deleted and edited messages.</div>
-    {% elif page_obj.paginator.count == 0 %}
-        <div class="text-muted text-center py-5">No matching messages in this chat.</div>
+    {% if page_obj.paginator.count == 0 %}
+        <div class="text-muted text-center py-5">No matching chats.</div>
     {% else %}
-        <div class="mb-3">
-            <a href="{% url 'chat_detail' selected_chat.pk %}" class="text-decoration-none fw-semibold">{{ selected_chat.display_name }}</a>
-        </div>
-        {% for msg in page_obj %}
-            {% include "archive/_message.html" %}
+        {% for chat in page_obj %}
+            <section class="card mb-4 overflow-hidden">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <a href="{% url 'chat_detail' chat.pk %}" class="text-decoration-none fw-semibold">{{ chat.display_name }}</a>
+                    <span class="text-muted small">{{ chat.change_messages|length }} message{{ chat.change_messages|length|pluralize }}</span>
+                </div>
+                <div class="card-body pb-2">
+                    {% for msg in chat.change_messages %}
+                        {% include "archive/_message.html" %}
+                    {% endfor %}
+                </div>
+            </section>
         {% endfor %}
     {% endif %}
 {% else %}
@@ -124,12 +131,6 @@
 
 {% block extra_js %}
 <script>
-    const displaySelect = document.getElementById('display-select');
-    const chatFilter = document.getElementById('chat-filter');
-    displaySelect.addEventListener('change', () => {
-        chatFilter.classList.toggle('d-none', displaySelect.value !== 'chat');
-    });
-
     const CSRF = '{{ csrf_token }}';
     document.addEventListener('click', event => {
         const button = event.target.closest('.bookmark-btn');

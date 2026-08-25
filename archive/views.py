@@ -6,13 +6,21 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.conf import settings
 from django.core.paginator import Paginator
-from django.db.models import Count, OuterRef, Q, Subquery
+from django.db.models import Count, Max, OuterRef, Prefetch, Q, Subquery
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 
-from .models import Bookmark, Message, MessageEdit, MessageType, TelegramChat
+from .models import (
+    Bookmark,
+    ChatType,
+    Message,
+    MessageEdit,
+    MessageType,
+    TelegramChat,
+    TelegramUser,
+)
 
 
 def _page_range(current, total, delta=2):
@@ -182,45 +190,49 @@ def message_changes(request):
     if event_type not in ("all", "deleted", "edited"):
         event_type = "all"
 
-    chat_id = request.GET.get("chat", "")
-    affected_chats = (
-        TelegramChat.objects.filter(
-            Q(messages__is_deleted=True) | Q(messages__edits__isnull=False)
-        )
-        .distinct()
-        .order_by("title", "chat_id")
+    hide_bots = request.GET.get("hide_bots") == "1"
+    hide_self = request.GET.get("hide_self") == "1"
+    self_user_ids = list(
+        TelegramUser.objects.filter(is_self=True).values_list("user_id", flat=True)
     )
 
-    selected_chat = None
-    replied_messages = {}
-    if display == "chat":
-        messages_qs = Message.objects.none()
-        if chat_id:
-            selected_chat = get_object_or_404(affected_chats, pk=chat_id)
-            messages_qs = (
-                selected_chat.messages.select_related("sender", "bookmark")
-                .prefetch_related("edits")
-            )
-            if event_type == "deleted":
-                messages_qs = messages_qs.filter(is_deleted=True)
-            elif event_type == "edited":
-                messages_qs = messages_qs.filter(edits__isnull=False)
-            else:
-                messages_qs = messages_qs.filter(
-                    Q(is_deleted=True) | Q(edits__isnull=False)
-                )
-            messages_qs = messages_qs.distinct().order_by("-date")
+    if event_type == "deleted":
+        affected_messages_q = Q(messages__is_deleted=True)
+        message_filter_q = Q(is_deleted=True)
+    elif event_type == "edited":
+        affected_messages_q = Q(messages__edits__isnull=False)
+        message_filter_q = Q(edits__isnull=False)
+    else:
+        affected_messages_q = Q(messages__is_deleted=True) | Q(messages__edits__isnull=False)
+        message_filter_q = Q(is_deleted=True) | Q(edits__isnull=False)
 
-        paginator = Paginator(messages_qs, 50)
+    if display == "chat":
+        changed_messages = (
+            Message.objects.filter(message_filter_q)
+            .select_related("sender", "bookmark")
+            .prefetch_related("edits")
+            .distinct()
+            .order_by("-date")
+        )
+        affected_chats = TelegramChat.objects.filter(affected_messages_q)
+        if hide_bots:
+            affected_chats = affected_chats.exclude(chat_type=ChatType.BOT)
+        if hide_self and self_user_ids:
+            affected_chats = affected_chats.exclude(chat_id__in=self_user_ids)
+        affected_chats = (
+            affected_chats.annotate(
+                latest_changed_message=Max("messages__date", filter=affected_messages_q)
+            )
+            .prefetch_related(
+                Prefetch("messages", queryset=changed_messages, to_attr="change_messages")
+            )
+            .distinct()
+            .order_by("-latest_changed_message", "title")
+        )
+
+        # Paginate complete chat groups so a chat is never split across pages.
+        paginator = Paginator(affected_chats, 10)
         page_obj = paginator.get_page(request.GET.get("page", 1))
-        reply_ids = [m.reply_to_message_id for m in page_obj if m.reply_to_message_id]
-        if selected_chat and reply_ids:
-            replied_messages = {
-                m.message_id: m
-                for m in Message.objects.filter(
-                    chat=selected_chat, message_id__in=reply_ids
-                ).select_related("sender")
-            }
     else:
         events = []
         if event_type in ("all", "deleted"):
@@ -229,6 +241,10 @@ def message_changes(request):
                 .select_related("chat", "sender", "bookmark")
                 .prefetch_related("edits")
             )
+            if hide_bots:
+                deleted_messages = deleted_messages.exclude(chat__chat_type=ChatType.BOT)
+            if hide_self and self_user_ids:
+                deleted_messages = deleted_messages.exclude(chat__chat_id__in=self_user_ids)
             events.extend({
                 "kind": "deleted",
                 "occurred_at": message.deleted_at,
@@ -242,6 +258,10 @@ def message_changes(request):
                 )
                 .prefetch_related("message__edits")
             )
+            if hide_bots:
+                edits = edits.exclude(message__chat__chat_type=ChatType.BOT)
+            if hide_self and self_user_ids:
+                edits = edits.exclude(message__chat__chat_id__in=self_user_ids)
             events.extend({
                 "kind": "edited",
                 "occurred_at": edit.edited_at,
@@ -254,19 +274,20 @@ def message_changes(request):
         page_obj = paginator.get_page(request.GET.get("page", 1))
 
     query_params = {"display": display, "event": event_type}
-    if chat_id:
-        query_params["chat"] = chat_id
+    if hide_bots:
+        query_params["hide_bots"] = "1"
+    if hide_self:
+        query_params["hide_self"] = "1"
 
     return render(request, "archive/message_changes.html", {
         "display": display,
         "event_type": event_type,
-        "affected_chats": affected_chats,
-        "selected_chat": selected_chat,
-        "chat_id": chat_id,
+        "hide_bots": hide_bots,
+        "hide_self": hide_self,
         "page_obj": page_obj,
         "page_range": _page_range(page_obj.number, paginator.num_pages),
         "pagination_query": urlencode(query_params),
-        "replied_messages": replied_messages,
+        "replied_messages": {},
     })
 
 
