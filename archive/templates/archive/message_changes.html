@@ -1,0 +1,148 @@
+{% extends "archive/base.html" %}
+{% block title %}Deleted & edited messages — Vibe Archive{% endblock %}
+
+{% block extra_css %}
+<style>
+    .msg-bubble { border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+    .msg-bubble.deleted { opacity: 0.65; border-left: 3px solid #dc3545; }
+    .edit-history { font-size: 0.8em; border-radius: 6px; padding: 6px 10px; margin-top: 6px; }
+    .msg-media-img { max-width: 320px; max-height: 320px; border-radius: 8px; margin-top: 6px; display: block; }
+    .msg-sticker { width: 120px; height: 120px; object-fit: contain; margin-top: 4px; display: block; }
+    .msg-video-note { width: 200px; height: 200px; border-radius: 50%; object-fit: cover; margin-top: 6px; display: block; }
+    .reply-quote { border-left: 3px solid var(--navbar); padding: 2px 8px; border-radius: 3px; background: var(--badge-bg); }
+    .change-event { border-left: 3px solid var(--border); padding-left: 14px; margin-bottom: 18px; }
+    .change-event.deleted-event { border-left-color: #dc3545; }
+    .change-event.edited-event { border-left-color: #ffc107; }
+    .previous-text { background: var(--edit-history); border-radius: 8px; padding: 8px 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0">Deleted &amp; edited messages</h5>
+    <span class="text-muted small">{{ page_obj.paginator.count }} item{{ page_obj.paginator.count|pluralize }}</span>
+</div>
+
+<form method="get" class="card card-body mb-4">
+    <div class="d-flex flex-wrap gap-3 align-items-end">
+        <div>
+            <label class="form-label small" for="display-select">Display</label>
+            <select class="form-select form-select-sm" name="display" id="display-select">
+                <option value="timeline" {% if display == "timeline" %}selected{% endif %}>Timeline</option>
+                <option value="chat" {% if display == "chat" %}selected{% endif %}>Chat view</option>
+            </select>
+        </div>
+        <div>
+            <label class="form-label small" for="event-select">Events</label>
+            <select class="form-select form-select-sm" name="event" id="event-select">
+                <option value="all" {% if event_type == "all" %}selected{% endif %}>Deleted and edited</option>
+                <option value="deleted" {% if event_type == "deleted" %}selected{% endif %}>Deleted only</option>
+                <option value="edited" {% if event_type == "edited" %}selected{% endif %}>Edited only</option>
+            </select>
+        </div>
+        <div id="chat-filter" {% if display != "chat" %}class="d-none"{% endif %}>
+            <label class="form-label small" for="chat-select">Chat</label>
+            <select class="form-select form-select-sm" name="chat" id="chat-select">
+                <option value="">Select a chat…</option>
+                {% for chat in affected_chats %}
+                    <option value="{{ chat.pk }}" {% if chat.pk|stringformat:"s" == chat_id %}selected{% endif %}>{{ chat.display_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn btn-sm btn-primary" type="submit">Show</button>
+    </div>
+</form>
+
+{% if display == "chat" %}
+    {% if not selected_chat %}
+        <div class="text-muted text-center py-5">Select a chat to display its deleted and edited messages.</div>
+    {% elif page_obj.paginator.count == 0 %}
+        <div class="text-muted text-center py-5">No matching messages in this chat.</div>
+    {% else %}
+        <div class="mb-3">
+            <a href="{% url 'chat_detail' selected_chat.pk %}" class="text-decoration-none fw-semibold">{{ selected_chat.display_name }}</a>
+        </div>
+        {% for msg in page_obj %}
+            {% include "archive/_message.html" %}
+        {% endfor %}
+    {% endif %}
+{% else %}
+    {% if page_obj.paginator.count == 0 %}
+        <div class="text-muted text-center py-5">No deleted or edited messages yet.</div>
+    {% else %}
+        {% for change in page_obj %}
+            <div class="change-event {{ change.kind }}-event">
+                <div class="d-flex flex-wrap justify-content-between gap-2 mb-2 small">
+                    <div>
+                        {% if change.kind == "deleted" %}
+                            <span class="badge text-bg-danger">Deleted</span>
+                        {% else %}
+                            <span class="badge text-bg-warning">Edited</span>
+                        {% endif %}
+                        <a class="ms-2 text-decoration-none fw-semibold" href="{% url 'chat_detail' change.message.chat.pk %}#msg-{{ change.message.message_id }}">
+                            {{ change.message.chat.display_name }}
+                        </a>
+                    </div>
+                    <span class="text-muted">{{ change.occurred_at|date:"d.m.Y H:i:s" }}</span>
+                </div>
+                {% if change.kind == "edited" %}
+                    <div class="previous-text mb-2">
+                        <div class="text-muted small mb-1">Text before this edit</div>
+                        <div style="white-space:pre-wrap">{{ change.edit.text }}</div>
+                    </div>
+                {% endif %}
+                {% with msg=change.message %}
+                    {% include "archive/_message.html" %}
+                {% endwith %}
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endif %}
+
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center flex-wrap">
+        {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?{{ pagination_query }}&page={{ page_obj.previous_page_number }}">←</a></li>
+        {% endif %}
+        {% for p in page_range %}
+            {% if p is None %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% elif p == page_obj.number %}
+                <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+            {% else %}
+                <li class="page-item"><a class="page-link" href="?{{ pagination_query }}&page={{ p }}">{{ p }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?{{ pagination_query }}&page={{ page_obj.next_page_number }}">→</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const displaySelect = document.getElementById('display-select');
+    const chatFilter = document.getElementById('chat-filter');
+    displaySelect.addEventListener('change', () => {
+        chatFilter.classList.toggle('d-none', displaySelect.value !== 'chat');
+    });
+
+    const CSRF = '{{ csrf_token }}';
+    document.addEventListener('click', event => {
+        const button = event.target.closest('.bookmark-btn');
+        if (!button) return;
+        fetch(`/api/message/${button.dataset.pk}/bookmark/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': CSRF},
+        })
+        .then(response => response.json())
+        .then(data => {
+            button.classList.toggle('active', data.bookmarked);
+            button.title = data.bookmarked ? 'Remove bookmark' : 'Add bookmark';
+        });
+    });
+</script>
+{% endblock %}

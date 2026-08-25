@@ -1,17 +1,18 @@
 import csv
 import json
+from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.conf import settings
 from django.core.paginator import Paginator
-from django.db.models import Count, OuterRef, Subquery
+from django.db.models import Count, OuterRef, Q, Subquery
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_POST
 
-from .models import Bookmark, Message, MessageType, TelegramChat
+from .models import Bookmark, Message, MessageEdit, MessageType, TelegramChat
 
 
 def _page_range(current, total, delta=2):
@@ -168,6 +169,104 @@ def bookmarks(request):
     return render(request, "archive/bookmarks.html", {
         "page_obj": page_obj,
         "page_range": _page_range(page_obj.number, paginator.num_pages),
+    })
+
+
+@login_required
+def message_changes(request):
+    display = request.GET.get("display", "timeline")
+    if display not in ("timeline", "chat"):
+        display = "timeline"
+
+    event_type = request.GET.get("event", "all")
+    if event_type not in ("all", "deleted", "edited"):
+        event_type = "all"
+
+    chat_id = request.GET.get("chat", "")
+    affected_chats = (
+        TelegramChat.objects.filter(
+            Q(messages__is_deleted=True) | Q(messages__edits__isnull=False)
+        )
+        .distinct()
+        .order_by("title", "chat_id")
+    )
+
+    selected_chat = None
+    replied_messages = {}
+    if display == "chat":
+        messages_qs = Message.objects.none()
+        if chat_id:
+            selected_chat = get_object_or_404(affected_chats, pk=chat_id)
+            messages_qs = (
+                selected_chat.messages.select_related("sender", "bookmark")
+                .prefetch_related("edits")
+            )
+            if event_type == "deleted":
+                messages_qs = messages_qs.filter(is_deleted=True)
+            elif event_type == "edited":
+                messages_qs = messages_qs.filter(edits__isnull=False)
+            else:
+                messages_qs = messages_qs.filter(
+                    Q(is_deleted=True) | Q(edits__isnull=False)
+                )
+            messages_qs = messages_qs.distinct().order_by("-date")
+
+        paginator = Paginator(messages_qs, 50)
+        page_obj = paginator.get_page(request.GET.get("page", 1))
+        reply_ids = [m.reply_to_message_id for m in page_obj if m.reply_to_message_id]
+        if selected_chat and reply_ids:
+            replied_messages = {
+                m.message_id: m
+                for m in Message.objects.filter(
+                    chat=selected_chat, message_id__in=reply_ids
+                ).select_related("sender")
+            }
+    else:
+        events = []
+        if event_type in ("all", "deleted"):
+            deleted_messages = (
+                Message.objects.filter(is_deleted=True, deleted_at__isnull=False)
+                .select_related("chat", "sender", "bookmark")
+                .prefetch_related("edits")
+            )
+            events.extend({
+                "kind": "deleted",
+                "occurred_at": message.deleted_at,
+                "message": message,
+            } for message in deleted_messages)
+
+        if event_type in ("all", "edited"):
+            edits = (
+                MessageEdit.objects.select_related(
+                    "message__chat", "message__sender", "message__bookmark"
+                )
+                .prefetch_related("message__edits")
+            )
+            events.extend({
+                "kind": "edited",
+                "occurred_at": edit.edited_at,
+                "message": edit.message,
+                "edit": edit,
+            } for edit in edits)
+
+        events.sort(key=lambda event: event["occurred_at"], reverse=True)
+        paginator = Paginator(events, 50)
+        page_obj = paginator.get_page(request.GET.get("page", 1))
+
+    query_params = {"display": display, "event": event_type}
+    if chat_id:
+        query_params["chat"] = chat_id
+
+    return render(request, "archive/message_changes.html", {
+        "display": display,
+        "event_type": event_type,
+        "affected_chats": affected_chats,
+        "selected_chat": selected_chat,
+        "chat_id": chat_id,
+        "page_obj": page_obj,
+        "page_range": _page_range(page_obj.number, paginator.num_pages),
+        "pagination_query": urlencode(query_params),
+        "replied_messages": replied_messages,
     })
 
 
