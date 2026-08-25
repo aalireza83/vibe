@@ -10,6 +10,11 @@ class AppSettings(models.Model):
         verbose_name="Max group members",
         help_text="Groups with more members are ignored",
     )
+    archive_bot_chats = models.BooleanField(
+        default=True,
+        verbose_name="Archive bot chats",
+        help_text="Save messages exchanged with Telegram bots",
+    )
     download_audio = models.BooleanField(
         default=False,
         verbose_name="Download audio",

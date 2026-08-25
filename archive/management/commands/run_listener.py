@@ -133,6 +133,13 @@ async def get_or_create_chat(event, client) -> TelegramChat | None:
         logger.debug("Unknown chat type: %s (id=%d)", type(chat).__name__, chat_id)
         return None
 
+    # Apply chat filtering settings.
+    if chat_type == ChatType.BOT:
+        app_settings = await sync_to_async(AppSettings.get)()
+        if not app_settings.archive_bot_chats:
+            logger.debug("Skipping bot chat: %s (id=%d)", title, chat_id)
+            return None
+
     # Check group member limit.
     if chat_type == ChatType.GROUP:
         app_settings = await sync_to_async(AppSettings.get)()
