@@ -98,9 +98,7 @@
             {% else %}
                 <span class="badge bg-light text-dark">🎤 Voice{% if msg.duration %} {{ msg.duration }}s{% endif %}</span>
             {% endif %}
-            {% if msg.transcription_pending %}
-                <p class="mb-0 mt-1 text-muted fst-italic small">Transcription is being processed...</p>
-            {% elif msg.transcription %}
+            {% if msg.transcription %}
                 <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
             {% endif %}
 
@@ -112,9 +110,7 @@
             {% else %}
                 <span class="badge bg-light text-dark">⭕ Video note{% if msg.duration %} {{ msg.duration }}s{% endif %}</span>
             {% endif %}
-            {% if msg.transcription_pending %}
-                <p class="mb-0 mt-1 text-muted fst-italic small">Transcription is being processed...</p>
-            {% elif msg.transcription %}
+            {% if msg.transcription %}
                 <p class="mb-0 mt-1 fst-italic text-secondary small">{{ msg.transcription }}</p>
             {% endif %}
 

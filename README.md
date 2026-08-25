@@ -1,12 +1,11 @@
 # Vibe Archive
 
-Personal Telegram archive. Connects to your account via MTProto API and saves all incoming messages to PostgreSQL — text, media, voice with transcription. Messages are preserved even if the other party deletes them.
+Personal Telegram archive. Connects to your account via MTProto API and saves all incoming messages to PostgreSQL — text and media. Messages are preserved even if the other party deletes them.
 
 ## Features
 
 - Archives private chats, bots, and groups up to N members
 - All message types: text, photos, videos, voice messages, video notes, stickers, GIFs, documents, polls, locations, contacts
-- Voice and video note transcription via Telegram Premium API
 - Message edit history
 - Deleted message logging
 - Full-text search (PostgreSQL FTS)

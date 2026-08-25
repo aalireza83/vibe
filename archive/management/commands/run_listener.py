@@ -8,7 +8,7 @@ from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
 from telethon.tl import types
 from telethon.tl.functions.channels import GetFullChannelRequest
-from telethon.tl.functions.messages import GetFullChatRequest, TranscribeAudioRequest
+from telethon.tl.functions.messages import GetFullChatRequest
 from telethon.tl.types import (
     Channel,
     Chat,
@@ -17,7 +17,6 @@ from telethon.tl.types import (
     MessageMediaGeo,
     MessageMediaPhoto,
     MessageMediaPoll,
-    UpdateTranscribedAudio,
     User,
 )
 
@@ -361,13 +360,6 @@ class Command(BaseCommand):
             except Exception as exc:
                 logger.exception("Error while handling deletion: %s", exc)
 
-        @client.on(events.Raw(UpdateTranscribedAudio))
-        async def on_transcription_ready(update):
-            try:
-                await handle_transcription_update(update)
-            except Exception as exc:
-                logger.exception("Error while handling transcription: %s", exc)
-
         self.stdout.write("Listening for messages... (Ctrl+C to stop)")
         try:
             await client.run_until_disconnected()
@@ -437,12 +429,6 @@ async def handle_new_message(event, client):
     ):
         asyncio.create_task(
             download_media_task(client, message, tg_chat, fields["message_type"])
-        )
-
-    # Transcription for voice messages and video notes.
-    if fields["message_type"] in (MessageType.VOICE, MessageType.VIDEO_NOTE):
-        asyncio.create_task(
-            transcribe_message(client, message, tg_chat)
         )
 
     logger.debug(
@@ -528,69 +514,6 @@ async def download_media_task(client, message, tg_chat: TelegramChat, msg_type: 
             await download_media_task(client, message, tg_chat, msg_type)
         except Exception as exc:
             logger.exception("Media download error: %s", exc)
-
-
-async def transcribe_message(client, message, tg_chat: TelegramChat):
-    from asgiref.sync import sync_to_async
-
-    try:
-        result = await client(TranscribeAudioRequest(
-            peer=await client.get_input_entity(tg_chat.chat_id),
-            msg_id=message.id,
-        ))
-
-        if not result.pending:
-            # Text is ready immediately.
-            @sync_to_async
-            def save_transcription():
-                Message.objects.filter(
-                    chat=tg_chat,
-                    message_id=message.id,
-                ).update(
-                    transcription=result.text,
-                    transcription_pending=False,
-                )
-
-            await save_transcription()
-            logger.debug("Transcription is ready for message #%d", message.id)
-        else:
-            # Mark as pending; the result will arrive through UpdateTranscribedAudio.
-            @sync_to_async
-            def mark_pending():
-                Message.objects.filter(
-                    chat=tg_chat,
-                    message_id=message.id,
-                ).update(transcription_pending=True)
-
-            await mark_pending()
-            logger.debug("Transcription is pending for message #%d", message.id)
-
-    except Exception as exc:
-        logger.warning("Could not start transcription for #%d: %s", message.id, exc)
-
-
-async def handle_transcription_update(update: UpdateTranscribedAudio):
-    from asgiref.sync import sync_to_async
-
-    if update.pending:
-        return  # Not ready yet.
-
-    @sync_to_async
-    def save():
-        Message.objects.filter(
-            chat__chat_id=update.peer.channel_id
-            if hasattr(update.peer, "channel_id")
-            else update.peer.chat_id
-            if hasattr(update.peer, "chat_id")
-            else update.peer.user_id,
-            message_id=update.msg_id,
-        ).update(
-            transcription=update.text,
-            transcription_pending=False,
-        )
-
-    await save()
-    logger.debug("Transcription updated for message #%d", update.msg_id)
 
 
 async def handle_message_edited(event):
