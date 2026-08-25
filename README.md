@@ -18,6 +18,7 @@ Personal Telegram archive. Connects to your account via MTProto API and saves al
 - Reply quotes
 - Dark / light theme
 - Settings via Django admin (group member limit, file downloads)
+- On-demand ZIP backups of media through an admin-selected date, with optional source deletion
 
 ## Stack
 
@@ -122,6 +123,7 @@ uv run python manage.py sync_history --chat 123456789
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Max group members | 50 | Groups above this limit are ignored |
+| Archive bot chats | Yes | Save messages exchanged with Telegram bots |
 | Download audio | No | Download music files |
 | Download documents | No | Download document files |
 | Max file size (MB) | 50 | Files larger than this are skipped |

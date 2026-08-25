@@ -154,6 +154,9 @@ class Command(BaseCommand):
         else:
             return None
 
+        if chat_type == ChatType.BOT and not app_settings.archive_bot_chats:
+            return None
+
         if chat_type == ChatType.GROUP and member_count is not None:
             if member_count > app_settings.max_group_members:
                 return None

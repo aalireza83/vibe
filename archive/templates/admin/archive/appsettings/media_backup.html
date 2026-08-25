@@ -1,0 +1,47 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; <a href="{% url 'admin:archive_appsettings_changelist' %}">Settings</a>
+  &rsaquo; Back up old media
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+  <p>
+    Creates a ZIP in <code>media/backups/</code> containing local media attached to
+    messages through the selected date. A manifest is included in the archive.
+  </p>
+  <form method="post" novalidate id="media-backup-form">
+    {% csrf_token %}
+    <fieldset class="module aligned">
+      {% for field in form %}
+        <div class="form-row{% if field.errors %} errors{% endif %}">
+          {{ field.errors }}
+          <div>
+            {{ field.label_tag }}
+            {{ field }}
+            {% if field.help_text %}<div class="help">{{ field.help_text }}</div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </fieldset>
+    <div class="submit-row">
+      <input type="submit" value="Create and download ZIP" class="default">
+    </div>
+  </form>
+</div>
+<script>
+  document.getElementById('media-backup-form').addEventListener('submit', function (event) {
+    const deleteOriginals = document.getElementById('id_delete_originals');
+    if (deleteOriginals.checked && !window.confirm(
+      'The original media files will be deleted after a successful backup. Continue?'
+    )) {
+      event.preventDefault();
+    }
+  });
+</script>
+{% endblock %}
