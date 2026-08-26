@@ -8,6 +8,7 @@ dependencies = [
     "django>=5.1",
     "psycopg2-binary>=2.9",
     "telethon==1.43.2",
+    "cryptg>=0.5.0.post0",
     "python-decouple>=3.8",
     "aiofiles>=23.0",
     "pillow>=11.0",
