@@ -1,0 +1,11 @@
+{% extends "admin/delete_selected_confirmation.html" %}
+
+{% block content %}
+<ul class="messagelist">
+  <li class="warning">
+    Warning: selected uploading jobs will also be deleted. Removing their records and
+    local ZIP files may not stop work already started by the Telegram listener.
+  </li>
+</ul>
+{{ block.super }}
+{% endblock %}

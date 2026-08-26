@@ -1,0 +1,12 @@
+{% extends "admin/delete_confirmation.html" %}
+
+{% block content %}
+<ul class="messagelist">
+  <li class="warning">
+    Warning: if this job is currently uploading, deleting it removes the job record
+    and its local ZIP, but work already started by the Telegram listener may continue
+    until the current operation ends.
+  </li>
+</ul>
+{{ block.super }}
+{% endblock %}

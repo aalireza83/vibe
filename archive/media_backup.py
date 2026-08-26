@@ -106,6 +106,27 @@ def load_media_backup_result(archive_path, file_count=0, skipped_count=0):
     )
 
 
+def delete_local_backup_archive(archive_path):
+    """Delete a generated ZIP only when it is safely inside MEDIA_ROOT/backups."""
+    if not archive_path:
+        return False
+
+    backup_dir = (Path(settings.MEDIA_ROOT).resolve() / "backups").resolve()
+    archive_path = Path(archive_path).resolve()
+    try:
+        archive_path.relative_to(backup_dir)
+    except ValueError:
+        raise ValueError("Refusing to delete a ZIP outside the media backup directory.")
+
+    if archive_path.suffix.lower() != ".zip":
+        raise ValueError("Refusing to delete a non-ZIP backup file.")
+
+    if not archive_path.exists():
+        return False
+    archive_path.unlink()
+    return True
+
+
 def delete_archived_originals(result):
     """Delete only files represented in a successfully created and sent archive."""
     if not result.archive_path.is_file():

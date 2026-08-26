@@ -4,6 +4,7 @@ from django.shortcuts import redirect, render
 from django.urls import path
 
 from .forms import MediaBackupForm
+from .media_backup import delete_local_backup_archive
 from .models import (
     AppSettings,
     Bookmark,
@@ -83,6 +84,8 @@ class AppSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(MediaBackupJob)
 class MediaBackupJobAdmin(admin.ModelAdmin):
+    delete_confirmation_template = "admin/archive/mediabackupjob/delete_confirmation.html"
+    delete_selected_confirmation_template = "admin/archive/mediabackupjob/delete_selected_confirmation.html"
     list_display = (
         "id", "cutoff_date", "status", "file_count", "skipped_count",
         "deleted_count", "delete_originals", "created_at", "completed_at",
@@ -99,7 +102,44 @@ class MediaBackupJobAdmin(admin.ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
-        return False
+        return super().has_delete_permission(request, obj)
+
+    def _remove_archive(self, request, job):
+        try:
+            return delete_local_backup_archive(job.archive_path)
+        except (OSError, ValueError) as exc:
+            self.message_user(
+                request,
+                f"Job #{job.pk} will be removed, but its local ZIP could not be deleted: {exc}",
+                level=messages.WARNING,
+            )
+            return False
+
+    def delete_model(self, request, obj):
+        self._remove_archive(request, obj)
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        uploading_count = queryset.filter(status=MediaBackupJob.Status.UPLOADING).count()
+        jobs = list(queryset)
+        removed_archives = sum(self._remove_archive(request, job) for job in jobs)
+        MediaBackupJob.objects.filter(pk__in=[job.pk for job in jobs]).delete()
+
+        if removed_archives:
+            self.message_user(
+                request,
+                f"{removed_archives} local backup ZIP file(s) were deleted.",
+                level=messages.SUCCESS,
+            )
+        if uploading_count:
+            self.message_user(
+                request,
+                (
+                    f"{uploading_count} uploading job(s) were deleted. "
+                    "Work already started by the listener may continue until its current operation ends."
+                ),
+                level=messages.WARNING,
+            )
 
     @admin.action(description="Retry selected failed or interrupted backup jobs")
     def retry_failed_jobs(self, request, queryset):
