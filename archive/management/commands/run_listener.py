@@ -27,6 +27,7 @@ from archive.media_backup import (
     delete_archived_originals,
     load_media_backup_result,
 )
+from archive.parallel_upload import upload_file_parallel
 from archive.models import (
     AppSettings,
     ChatType,
@@ -692,9 +693,28 @@ async def process_media_backup_queue(client):
             else:
                 result = await sync_to_async(create_media_backup)(job["cutoff_date"])
                 await save_created_archive(job["id"], result)
+            last_logged_percent = -10
+
+            def log_upload_progress(sent, total):
+                nonlocal last_logged_percent
+                percent = int(sent * 100 / total) if total else 100
+                if percent >= last_logged_percent + 10:
+                    last_logged_percent = percent
+                    logger.info(
+                        "Backup #%d parallel upload: %d%%",
+                        job["id"],
+                        percent,
+                    )
+
+            uploaded_file = await upload_file_parallel(
+                client,
+                result.archive_path,
+                connection_count=settings.TG_UPLOAD_CONNECTIONS,
+                progress_callback=log_upload_progress,
+            )
             await client.send_file(
                 "me",
-                str(result.archive_path),
+                uploaded_file,
                 caption=(
                     f"Vibe media backup #{job['id']}\n"
                     f"Files: {result.file_count}\n"

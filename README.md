@@ -74,6 +74,7 @@ DB_PORT=5432
 TG_API_ID=12345678
 TG_API_HASH=abcdef1234567890abcdef1234567890
 TG_PHONE=+1XXXXXXXXXX
+TG_UPLOAD_CONNECTIONS=8
 ```
 
 > Session file is created automatically: `{phone_without_plus}.session`
