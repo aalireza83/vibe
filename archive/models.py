@@ -103,6 +103,39 @@ class TelegramChat(models.Model):
         return self.title or self.username or str(self.chat_id)
 
 
+class MediaBackupJob(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        UPLOADING = "uploading", "Uploading"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    cutoff_date = models.DateField(verbose_name="Media through date")
+    archive_path = models.CharField(max_length=500, blank=True, verbose_name="ZIP path")
+    delete_originals = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    file_count = models.PositiveIntegerField(default=0)
+    skipped_count = models.PositiveIntegerField(default=0)
+    deleted_count = models.PositiveIntegerField(default=0)
+    error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    completed_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Media backup job"
+        verbose_name_plural = "Media backup jobs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Media backup #{self.pk} ({self.status})"
+
+
 class MessageType(models.TextChoices):
     TEXT = "text", "Text"
     PHOTO = "photo", "Photo"

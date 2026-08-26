@@ -1,8 +1,10 @@
 import asyncio
+import contextlib
 import logging
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from django.utils import timezone
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
@@ -20,7 +22,21 @@ from telethon.tl.types import (
     User,
 )
 
-from archive.models import AppSettings, ChatType, Message, MessageEdit, MessageType, TelegramChat, TelegramUser
+from archive.media_backup import (
+    create_media_backup,
+    delete_archived_originals,
+    load_media_backup_result,
+)
+from archive.models import (
+    AppSettings,
+    ChatType,
+    MediaBackupJob,
+    Message,
+    MessageEdit,
+    MessageType,
+    TelegramChat,
+    TelegramUser,
+)
 
 # Member count cache: {chat_id: member_count}.
 # Lives while the listener runs and avoids repeated Telegram requests.
@@ -367,12 +383,16 @@ class Command(BaseCommand):
             except Exception as exc:
                 logger.exception("Error while handling deletion: %s", exc)
 
-        self.stdout.write("Listening for messages... (Ctrl+C to stop)")
+        backup_queue_task = asyncio.create_task(process_media_backup_queue(client))
+        self.stdout.write("Listening for messages and backup jobs... (Ctrl+C to stop)")
         try:
             await client.run_until_disconnected()
         except KeyboardInterrupt:
             pass
         finally:
+            backup_queue_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await backup_queue_task
             await client.disconnect()
             self.stdout.write(self.style.WARNING("\nListener stopped."))
 
@@ -381,6 +401,17 @@ async def handle_new_message(event, client):
     from asgiref.sync import sync_to_async
 
     message = event.message
+
+    # Do not archive/download the ZIP that this listener sends to Saved Messages.
+    # Otherwise document downloads can feed a backup back into the next backup.
+    sent_file_name = getattr(getattr(message, "file", None), "name", "") or ""
+    if (
+        getattr(message, "out", False)
+        and sent_file_name.startswith("media-through-")
+        and sent_file_name.endswith(".zip")
+        and (message.text or "").startswith("Vibe media backup #")
+    ):
+        return
 
     # Get or create the chat. Returns None for channels or groups above the limit.
     tg_chat = await get_or_create_chat(event, client)
@@ -590,3 +621,102 @@ async def handle_message_deleted(event):
         count,
         deleted_ids[:5],
     )
+
+
+async def process_media_backup_queue(client):
+    """Send admin-created ZIP jobs through this listener's connected Telegram client."""
+    from asgiref.sync import sync_to_async
+
+    @sync_to_async
+    def claim_next_job():
+        with transaction.atomic():
+            job = (
+                MediaBackupJob.objects.select_for_update(skip_locked=True)
+                .filter(status=MediaBackupJob.Status.PENDING)
+                .order_by("created_at")
+                .first()
+            )
+            if job is None:
+                return None
+            job.status = MediaBackupJob.Status.UPLOADING
+            job.started_at = timezone.now()
+            job.error = ""
+            job.save(update_fields=["status", "started_at", "error"])
+            return {
+                "id": job.pk,
+                "cutoff_date": job.cutoff_date,
+                "archive_path": job.archive_path,
+                "delete_originals": job.delete_originals,
+                "file_count": job.file_count,
+                "skipped_count": job.skipped_count,
+            }
+
+    @sync_to_async
+    def save_created_archive(job_id, result):
+        MediaBackupJob.objects.filter(pk=job_id).update(
+            archive_path=str(result.archive_path),
+            file_count=result.file_count,
+            skipped_count=result.skipped_count,
+        )
+
+    @sync_to_async
+    def mark_failed(job_id, error):
+        MediaBackupJob.objects.filter(pk=job_id).update(
+            status=MediaBackupJob.Status.FAILED,
+            error=str(error),
+            completed_at=timezone.now(),
+        )
+
+    @sync_to_async
+    def mark_completed(job_id, deleted_count, warning=""):
+        MediaBackupJob.objects.filter(pk=job_id).update(
+            status=MediaBackupJob.Status.COMPLETED,
+            deleted_count=deleted_count,
+            error=warning,
+            completed_at=timezone.now(),
+        )
+
+    while True:
+        job = await claim_next_job()
+        if job is None:
+            await asyncio.sleep(5)
+            continue
+
+        try:
+            if job["archive_path"]:
+                result = await sync_to_async(load_media_backup_result)(
+                    job["archive_path"],
+                    file_count=job["file_count"],
+                    skipped_count=job["skipped_count"],
+                )
+            else:
+                result = await sync_to_async(create_media_backup)(job["cutoff_date"])
+                await save_created_archive(job["id"], result)
+            await client.send_file(
+                "me",
+                str(result.archive_path),
+                caption=(
+                    f"Vibe media backup #{job['id']}\n"
+                    f"Files: {result.file_count}\n"
+                    f"Skipped: {result.skipped_count}"
+                ),
+                force_document=True,
+            )
+        except Exception as exc:
+            logger.exception("Could not send media backup job #%d", job["id"])
+            await mark_failed(job["id"], exc)
+            continue
+
+        deleted_count = 0
+        cleanup_warning = ""
+        try:
+            if job["delete_originals"]:
+                deleted_count = await sync_to_async(delete_archived_originals)(result)
+            await sync_to_async(result.archive_path.unlink)(missing_ok=True)
+        except Exception as exc:
+            # Upload already succeeded, so do not mark failed/retry and send a duplicate.
+            cleanup_warning = f"Sent successfully, but local cleanup failed: {exc}"
+            logger.exception("Cleanup failed for media backup job #%d", job["id"])
+
+        await mark_completed(job["id"], deleted_count, cleanup_warning)
+        logger.info("Sent media backup job #%d to Saved Messages", job["id"])

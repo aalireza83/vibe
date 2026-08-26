@@ -1,4 +1,3 @@
-import asyncio
 import json
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
@@ -8,7 +7,6 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
-from telethon import TelegramClient
 
 from .models import Message
 
@@ -96,39 +94,16 @@ def create_media_backup(cutoff_date):
     )
 
 
-async def _send_backup_to_saved_messages(result):
-    client = TelegramClient(
-        settings.TG_SESSION,
-        settings.TG_API_ID,
-        settings.TG_API_HASH,
-        device_model=settings.DEVICE_MODEL,
-        system_version=settings.SYSTEM_VERSION,
-        app_version=settings.APP_VERSION,
-        lang_code=settings.LANG_CODE,
-        system_lang_code=settings.SYSTEM_LANG_CODE,
+def load_media_backup_result(archive_path, file_count=0, skipped_count=0):
+    archive_path = Path(archive_path)
+    with ZipFile(archive_path, "r") as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+    return MediaBackupResult(
+        archive_path=archive_path,
+        file_count=file_count,
+        skipped_count=skipped_count,
+        manifest=tuple(manifest),
     )
-    await client.connect()
-    try:
-        if not await client.is_user_authorized():
-            raise RuntimeError(
-                "Telegram session is not authorized. Run the listener and sign in first."
-            )
-        await client.send_file(
-            "me",
-            str(result.archive_path),
-            caption=(
-                f"Vibe media backup\n"
-                f"Files: {result.file_count}\n"
-                f"Skipped: {result.skipped_count}"
-            ),
-            force_document=True,
-        )
-    finally:
-        await client.disconnect()
-
-
-def send_backup_to_saved_messages(result):
-    asyncio.run(_send_backup_to_saved_messages(result))
 
 
 def delete_archived_originals(result):

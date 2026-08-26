@@ -4,12 +4,15 @@ from django.shortcuts import redirect, render
 from django.urls import path
 
 from .forms import MediaBackupForm
-from .media_backup import (
-    create_media_backup,
-    delete_archived_originals,
-    send_backup_to_saved_messages,
+from .models import (
+    AppSettings,
+    Bookmark,
+    MediaBackupJob,
+    Message,
+    MessageEdit,
+    TelegramChat,
+    TelegramUser,
 )
-from .models import AppSettings, Bookmark, Message, MessageEdit, TelegramChat, TelegramUser
 
 
 @admin.register(AppSettings)
@@ -49,45 +52,20 @@ class AppSettingsAdmin(admin.ModelAdmin):
             form = MediaBackupForm(request.POST)
             if form.is_valid():
                 try:
-                    result = create_media_backup(form.cleaned_data["cutoff_date"])
-                    send_backup_to_saved_messages(result)
+                    job = MediaBackupJob.objects.create(
+                        cutoff_date=form.cleaned_data["cutoff_date"],
+                        delete_originals=form.cleaned_data["delete_originals"],
+                    )
                 except Exception as exc:
                     self.message_user(
                         request,
-                        f"Media backup or Telegram upload failed: {exc}. The ZIP was kept locally.",
+                        f"Media backup request could not be queued: {exc}",
                         level=messages.ERROR,
                     )
                 else:
-                    deleted_count = 0
-                    try:
-                        if form.cleaned_data["delete_originals"]:
-                            deleted_count = delete_archived_originals(result)
-                    except Exception as exc:
-                        self.message_user(
-                            request,
-                            f"Backup was sent to Saved Messages, but original-file cleanup failed: {exc}",
-                            level=messages.WARNING,
-                        )
-                        return redirect("admin:archive_appsettings_media_backup")
-
-                    # Saved Messages is the backup destination; do not retain a duplicate ZIP locally.
-                    try:
-                        result.archive_path.unlink(missing_ok=True)
-                    except OSError as exc:
-                        self.message_user(
-                            request,
-                            f"Backup was sent, but the temporary local ZIP could not be removed: {exc}",
-                            level=messages.WARNING,
-                        )
-                        return redirect("admin:archive_appsettings_media_backup")
-
                     self.message_user(
                         request,
-                        (
-                            f"Backup sent to Telegram Saved Messages: "
-                            f"{result.file_count} files, {result.skipped_count} skipped, "
-                            f"{deleted_count} originals deleted."
-                        ),
+                        f"Backup #{job.pk} was queued. The listener will create and send it to Saved Messages.",
                         level=messages.SUCCESS,
                     )
                     return redirect("admin:archive_appsettings_media_backup")
@@ -101,6 +79,39 @@ class AppSettingsAdmin(admin.ModelAdmin):
             "form": form,
         }
         return render(request, "admin/archive/appsettings/media_backup.html", context)
+
+
+@admin.register(MediaBackupJob)
+class MediaBackupJobAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "cutoff_date", "status", "file_count", "skipped_count",
+        "deleted_count", "delete_originals", "created_at", "completed_at",
+    )
+    list_filter = ("status", "delete_originals")
+    readonly_fields = (
+        "cutoff_date", "archive_path", "delete_originals", "status",
+        "file_count", "skipped_count", "deleted_count", "error",
+        "created_at", "started_at", "completed_at",
+    )
+    actions = ("retry_failed_jobs",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.action(description="Retry selected failed or interrupted backup jobs")
+    def retry_failed_jobs(self, request, queryset):
+        count = queryset.filter(
+            status__in=(MediaBackupJob.Status.FAILED, MediaBackupJob.Status.UPLOADING)
+        ).update(
+            status=MediaBackupJob.Status.PENDING,
+            error="",
+            started_at=None,
+            completed_at=None,
+        )
+        self.message_user(request, f"{count} backup job(s) queued for retry.")
 
 
 @admin.register(TelegramUser)

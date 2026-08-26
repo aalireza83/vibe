@@ -12,9 +12,9 @@
 {% block content %}
 <div id="content-main">
   <p>
-    Creates a temporary ZIP containing local media attached to messages through the
-    selected date, then sends it to Telegram Saved Messages. A manifest is included
-    in the archive, and the temporary local ZIP is removed after a successful upload.
+    Queues a request for the running Telegram listener. The listener creates a ZIP
+    containing media through the selected date and sends it to Saved Messages. A
+    manifest is included, and the temporary ZIP is removed after upload.
   </p>
   <form method="post" novalidate id="media-backup-form">
     {% csrf_token %}
@@ -31,7 +31,7 @@
       {% endfor %}
     </fieldset>
     <div class="submit-row">
-      <input type="submit" value="Create ZIP and send to Saved Messages" class="default">
+      <input type="submit" value="Queue backup for Saved Messages" class="default">
     </div>
   </form>
 </div>
