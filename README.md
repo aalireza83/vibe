@@ -17,7 +17,7 @@ Personal Telegram archive. Connects to your account via MTProto API and saves al
 - Reply quotes
 - Dark / light theme
 - Settings via Django admin (group member limit, file downloads)
-- On-demand ZIP backups of media through an admin-selected date, with optional source deletion
+- On-demand ZIP backups of media through an admin-selected date, sent to Telegram Saved Messages with optional source deletion
 
 ## Stack
 

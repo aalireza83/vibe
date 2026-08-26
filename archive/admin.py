@@ -1,11 +1,14 @@
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
-from django.http import FileResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import path
 
 from .forms import MediaBackupForm
-from .media_backup import create_media_backup
+from .media_backup import (
+    create_media_backup,
+    delete_archived_originals,
+    send_backup_to_saved_messages,
+)
 from .models import AppSettings, Bookmark, Message, MessageEdit, TelegramChat, TelegramUser
 
 
@@ -46,24 +49,48 @@ class AppSettingsAdmin(admin.ModelAdmin):
             form = MediaBackupForm(request.POST)
             if form.is_valid():
                 try:
-                    result = create_media_backup(**form.cleaned_data)
+                    result = create_media_backup(form.cleaned_data["cutoff_date"])
+                    send_backup_to_saved_messages(result)
                 except Exception as exc:
                     self.message_user(
                         request,
-                        f"Media backup failed: {exc}",
+                        f"Media backup or Telegram upload failed: {exc}. The ZIP was kept locally.",
                         level=messages.ERROR,
                     )
                 else:
-                    response = FileResponse(
-                        result.archive_path.open("rb"),
-                        as_attachment=True,
-                        filename=result.archive_path.name,
-                        content_type="application/zip",
+                    deleted_count = 0
+                    try:
+                        if form.cleaned_data["delete_originals"]:
+                            deleted_count = delete_archived_originals(result)
+                    except Exception as exc:
+                        self.message_user(
+                            request,
+                            f"Backup was sent to Saved Messages, but original-file cleanup failed: {exc}",
+                            level=messages.WARNING,
+                        )
+                        return redirect("admin:archive_appsettings_media_backup")
+
+                    # Saved Messages is the backup destination; do not retain a duplicate ZIP locally.
+                    try:
+                        result.archive_path.unlink(missing_ok=True)
+                    except OSError as exc:
+                        self.message_user(
+                            request,
+                            f"Backup was sent, but the temporary local ZIP could not be removed: {exc}",
+                            level=messages.WARNING,
+                        )
+                        return redirect("admin:archive_appsettings_media_backup")
+
+                    self.message_user(
+                        request,
+                        (
+                            f"Backup sent to Telegram Saved Messages: "
+                            f"{result.file_count} files, {result.skipped_count} skipped, "
+                            f"{deleted_count} originals deleted."
+                        ),
+                        level=messages.SUCCESS,
                     )
-                    response["X-Backup-File-Count"] = str(result.file_count)
-                    response["X-Backup-Deleted-Count"] = str(result.deleted_count)
-                    response["X-Backup-Skipped-Count"] = str(result.skipped_count)
-                    return response
+                    return redirect("admin:archive_appsettings_media_backup")
         else:
             form = MediaBackupForm()
 

@@ -11,7 +11,7 @@ class MediaBackupForm(forms.Form):
     delete_originals = forms.BooleanField(
         required=False,
         label="Delete original files after the ZIP is created successfully",
-        help_text="The message records remain in the database, but their local media links are cleared.",
+        help_text="After the ZIP is sent successfully, original files are deleted and their local media links are cleared.",
     )
 
     def clean_cutoff_date(self):

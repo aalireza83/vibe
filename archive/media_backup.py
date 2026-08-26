@@ -1,3 +1,4 @@
+import asyncio
 import json
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
@@ -7,6 +8,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from telethon import TelegramClient
 
 from .models import Message
 
@@ -15,11 +17,11 @@ from .models import Message
 class MediaBackupResult:
     archive_path: Path
     file_count: int
-    deleted_count: int
     skipped_count: int
+    manifest: tuple[dict, ...]
 
 
-def create_media_backup(cutoff_date, delete_originals=False):
+def create_media_backup(cutoff_date):
     """Archive local media belonging to messages through the selected local date."""
     media_root = Path(settings.MEDIA_ROOT).resolve()
     backup_dir = media_root / "backups"
@@ -86,28 +88,76 @@ def create_media_backup(cutoff_date, delete_originals=False):
         archive_path.unlink(missing_ok=True)
         raise
 
-    deleted_ids = []
-    deleted_paths = set()
-    if delete_originals and manifest:
-        for item in manifest:
-            source = media_root / item["path"]
-            if source not in deleted_paths:
-                try:
-                    source.unlink()
-                except FileNotFoundError:
-                    pass
-                except OSError:
-                    continue
-                deleted_paths.add(source)
-            deleted_ids.append(item["message_pk"])
-
-        if deleted_ids:
-            with transaction.atomic():
-                Message.objects.filter(pk__in=deleted_ids).update(media_path=None)
-
     return MediaBackupResult(
         archive_path=archive_path,
         file_count=len(archived_paths),
-        deleted_count=len(deleted_paths),
         skipped_count=skipped_count,
+        manifest=tuple(manifest),
     )
+
+
+async def _send_backup_to_saved_messages(result):
+    client = TelegramClient(
+        settings.TG_SESSION,
+        settings.TG_API_ID,
+        settings.TG_API_HASH,
+        device_model=settings.DEVICE_MODEL,
+        system_version=settings.SYSTEM_VERSION,
+        app_version=settings.APP_VERSION,
+        lang_code=settings.LANG_CODE,
+        system_lang_code=settings.SYSTEM_LANG_CODE,
+    )
+    await client.connect()
+    try:
+        if not await client.is_user_authorized():
+            raise RuntimeError(
+                "Telegram session is not authorized. Run the listener and sign in first."
+            )
+        await client.send_file(
+            "me",
+            str(result.archive_path),
+            caption=(
+                f"Vibe media backup\n"
+                f"Files: {result.file_count}\n"
+                f"Skipped: {result.skipped_count}"
+            ),
+            force_document=True,
+        )
+    finally:
+        await client.disconnect()
+
+
+def send_backup_to_saved_messages(result):
+    asyncio.run(_send_backup_to_saved_messages(result))
+
+
+def delete_archived_originals(result):
+    """Delete only files represented in a successfully created and sent archive."""
+    if not result.archive_path.is_file():
+        raise FileNotFoundError("The backup ZIP no longer exists; originals were not deleted.")
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    deleted_paths = set()
+    cleared_message_ids = []
+    for item in result.manifest:
+        source = (media_root / item["path"]).resolve()
+        try:
+            source.relative_to(media_root)
+        except ValueError:
+            continue
+
+        if source not in deleted_paths:
+            try:
+                source.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                continue
+            deleted_paths.add(source)
+        cleared_message_ids.append(item["message_pk"])
+
+    if cleared_message_ids:
+        with transaction.atomic():
+            Message.objects.filter(pk__in=cleared_message_ids).update(media_path=None)
+
+    return len(deleted_paths)

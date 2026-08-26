@@ -12,8 +12,9 @@
 {% block content %}
 <div id="content-main">
   <p>
-    Creates a ZIP in <code>media/backups/</code> containing local media attached to
-    messages through the selected date. A manifest is included in the archive.
+    Creates a temporary ZIP containing local media attached to messages through the
+    selected date, then sends it to Telegram Saved Messages. A manifest is included
+    in the archive, and the temporary local ZIP is removed after a successful upload.
   </p>
   <form method="post" novalidate id="media-backup-form">
     {% csrf_token %}
@@ -30,7 +31,7 @@
       {% endfor %}
     </fieldset>
     <div class="submit-row">
-      <input type="submit" value="Create and download ZIP" class="default">
+      <input type="submit" value="Create ZIP and send to Saved Messages" class="default">
     </div>
   </form>
 </div>
@@ -38,7 +39,7 @@
   document.getElementById('media-backup-form').addEventListener('submit', function (event) {
     const deleteOriginals = document.getElementById('id_delete_originals');
     if (deleteOriginals.checked && !window.confirm(
-      'The original media files will be deleted after a successful backup. Continue?'
+      'The original media files will be deleted after the ZIP is sent successfully. Continue?'
     )) {
       event.preventDefault();
     }
